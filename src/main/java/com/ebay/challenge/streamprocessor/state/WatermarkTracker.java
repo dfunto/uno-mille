@@ -79,6 +79,15 @@ public class WatermarkTracker {
         return !watermark.equals(Instant.MIN) && eventTime.isBefore(watermark.minus(allowedLateness));
     }
 
+
+    /**
+     * Find the minimum watermark across all partitions for a given topic.
+     * Used for state eviction: the minimum watermark represents the oldest event time
+     * we still need to retain state for, ensuring no partition is evicted ahead of others.
+     *
+     * @param topic the topic name (e.g. "ad_clicks", "page_views")
+     * @return the minimum watermark across all partitions, or Instant.MIN if none found
+     */
     public Instant findMinWatermark(String topic){
         return watermarks.entrySet().stream()
                 .filter(e -> e.getKey().startsWith(topic + ":"))

@@ -46,26 +46,24 @@ public class ClickStateStore {
     }
 
     /**
-     * Find the most recent click for a user within the attribution window.
-     * Attribution logic:
-     * - Search for clicks in window: [pageViewTime - 30 minutes, pageViewTime]
-     * - Return the most recent click within the window
-     * - Return null if no click found
+     * Find the most recent click for a user within the given time window [windowStart, windowEnd].
+     * Both bounds are inclusive. The caller is responsible for computing the window
+     * (typically: windowStart = pageViewTime - attributionWindow, windowEnd = pageViewTime).
      *
      * @param userId the user ID
-     * @param pageViewTime the page view event time
-     * @return the most recent click within 30 minutes before the page view, or null if none found
+     * @param windowStart the start of the attribution window (inclusive)
+     * @param windowEnd the end of the attribution window (inclusive)
+     * @return the most recent click within the window, or empty if none found
      */
-    public Optional<AdClickEvent> findAttributableClick(String userId, Instant pageViewTime, Duration attributionWindow) {
-        log.debug("Finding attributable click for {} at time {}", userId, pageViewTime);
+    public Optional<AdClickEvent> findAttributableClick(String userId, Instant windowStart, Instant windowEnd) {
+        log.debug("Finding attributable click for {} between {} and {}", userId, windowStart, windowEnd);
 
         TreeSet<AdClickEvent> userEvents = this.state.get(userId);
         if (userEvents == null)
             return Optional.empty();
 
-        Instant windowStart = pageViewTime.minus(attributionWindow);
         AdClickEvent lowerBound = AdClickEvent.builder().eventTime(windowStart).build();
-        AdClickEvent upperBound = AdClickEvent.builder().eventTime(pageViewTime).build();
+        AdClickEvent upperBound = AdClickEvent.builder().eventTime(windowEnd).build();
 
         synchronized (userEvents){
             NavigableSet<AdClickEvent> windowClicks = userEvents.subSet(

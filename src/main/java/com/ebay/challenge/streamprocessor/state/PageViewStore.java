@@ -1,6 +1,5 @@
 package com.ebay.challenge.streamprocessor.state;
 
-import com.ebay.challenge.streamprocessor.model.AdClickEvent;
 import com.ebay.challenge.streamprocessor.model.PageViewEvent;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -27,16 +26,25 @@ public class PageViewStore {
         }
     }
 
-    public List<PageViewEvent> findUserPageViews(String userId, Instant windowStart, Instant cutoffTime){
+    /**
+     * Find all buffered page views for a user whose event time falls within (windowStart, windowEnd].
+     * The lower bound is exclusive to ensure the click strictly precedes the page view.
+     * Used by re-attribution logic when a late click arrives and needs to find page views
+     * that could now be attributed to it.
+     *
+     * @param userId the user ID
+     * @param windowStart the start of the window (exclusive) — typically the click's event time
+     * @param windowEnd the end of the window (inclusive) — typically clickTime + attributionWindow
+     * @return list of matching page views, ordered by event time ascending
+     */
+    public List<PageViewEvent> findUserPageViews(String userId, Instant windowStart, Instant windowEnd){
         log.debug("Looking for page views for user {}", userId);
         TreeSet<PageViewEvent> userPages = state.get(userId);
         if (userPages == null)
             return Collections.emptyList();
 
-        // Click must be BEFORE the page view, and within the window:
-        // page view must be in (windowStart, cutoffTime)
         PageViewEvent lowerBound = PageViewEvent.builder().eventTime(windowStart).build();
-        PageViewEvent upperBound = PageViewEvent.builder().eventTime(cutoffTime).build();
+        PageViewEvent upperBound = PageViewEvent.builder().eventTime(windowEnd).build();
 
         synchronized(userPages) {
             NavigableSet<PageViewEvent> pageViews = userPages.subSet(
