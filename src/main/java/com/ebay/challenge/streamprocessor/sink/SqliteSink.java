@@ -10,9 +10,10 @@ import java.io.File;
 import java.sql.*;
 
 /**
- * Writes attributed page view records to a local file in JSONL format (one JSON record per line).
- * Thread-safe: synchronized write ensures multiple partition threads don't interleave output.
- * Append mode + flush-per-write ensures records are durable across crashes.
+ * SQLite-based output sink for attributed page view records.
+ * Uses INSERT OR REPLACE on page_view_id (PRIMARY KEY) for upsert semantics,
+ * allowing re-attribution corrections to overwrite earlier null-attributed records.
+ * Thread-safe: synchronized write serializes concurrent partition threads (SQLite single-writer constraint).
  */
 @Slf4j
 @Component

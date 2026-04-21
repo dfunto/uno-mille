@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y \
     gnupg \
     lsb-release \
     sudo \
+    sqlite3 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install python dependencies
@@ -61,6 +62,3 @@ RUN echo 'export JAVA_HOME=$(readlink -f /usr/bin/javac | sed "s:/bin/javac::")'
 
 USER $USERNAME
 WORKDIR /workspace
-
-# Install Python dependencies
-#RUN pip install -r requirements.txt
