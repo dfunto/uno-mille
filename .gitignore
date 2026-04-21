@@ -1,0 +1,41 @@
+# Outputs
+output/
+
+# Maven build directory
+target/
+
+# Compiled class files
+*.class
+
+# Packaged artifacts
+*.jar
+*.war
+*.ear
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IntelliJ IDEA
+.idea/
+*.iml
+
+# Eclipse
+.project
+.classpath
+.settings/
+
+# VS Code
+.vscode/
+
+# Temporary files
+*.tmp
+*.swp
+*.swo
+
+# JVM crash logs
+hs_err_pid*
+replay_pid*
