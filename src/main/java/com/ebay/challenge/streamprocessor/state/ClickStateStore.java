@@ -102,14 +102,4 @@ public class ClickStateStore {
         }
         return counter;
     }
-
-    /**
-     * Get the total number of clicks currently in state.
-     *
-     * @return total click count across all users
-     */
-    public long getTotalClickCount() {
-
-        return 0;
-    }
 }

@@ -8,6 +8,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.Instant;
+import java.util.Objects;
 
 /**
  * Represents the output of the join operation - a page view attributed to an ad click.
@@ -38,6 +39,7 @@ public class AttributedPageView {
     private String attributedClickId;
 
     public static AttributedPageView from(PageViewEvent pageView, AdClickEvent clickEvent) {
+        Objects.requireNonNull(pageView, "pageView must not be null");
         return AttributedPageView.builder()
                 .pageViewId(pageView.getEventId())
                 .userId(pageView.getUserId())

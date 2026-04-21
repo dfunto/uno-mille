@@ -32,10 +32,11 @@ public class PageViewEvent {
     private String eventId;
 
     // Metadata fields for processing
+    public static final String TOPIC = "page_views";
     private transient int partition;
     private transient long offset;
 
     public String getWatermarkKey() {
-        return "page_views:" + partition;
+        return TOPIC + ":" + partition;
     }
 }

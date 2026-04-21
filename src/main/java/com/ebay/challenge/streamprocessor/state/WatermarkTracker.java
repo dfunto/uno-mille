@@ -7,6 +7,8 @@ import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Comparator;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -77,30 +79,11 @@ public class WatermarkTracker {
         return !watermark.equals(Instant.MIN) && eventTime.isBefore(watermark.minus(allowedLateness));
     }
 
-//    /**
-//     * Get the cutoff time for a partition, below which page views are safe to emit.
-//     * Cutoff is calculated as: watermark - allowedLateness
-//     * A page view with event_time < cutoff will not receive any further attributable clicks.
-//     * @param partition the partition ID
-//     * @return the cutoff instant, or Instant.MIN if the partition has no watermark yet
-//     */
-//    public Instant getPartitionCutoff(int partition){
-//        Instant watermark = getWatermark(partition);
-//        return watermark.equals(Instant.MIN) ? Instant.MIN : watermark.minus(getAllowedLateness());
-//    }
-//
-//    /**
-//     * Check if a partition has been idle long enough that its watermark can be considered stale.
-//     * A partition is stale when no event has been received for longer than allowedLateness (wall-clock time),
-//     * meaning no further late events are expected and buffered page views can be safely flushed.
-//     * @param partition the partition ID
-//     * @return true if the partition has been idle beyond allowedLateness
-//     */
-//    public boolean isWatermarkStale(Integer partition) {
-//        log.debug("Checking if partition {} is stale", partition);
-//        Instant lastEvent = lastWallClockEvents.getOrDefault(partition, Instant.MIN);
-//        Duration durationSinceLastEvent = Duration.between(lastEvent, Instant.now());
-//        log.debug("Checking partition {} duration since last event {}", partition, durationSinceLastEvent);
-//        return !lastEvent.equals(Instant.MIN) && durationSinceLastEvent.compareTo(getAllowedLateness()) > 0;
-//    }
+    public Instant findMinWatermark(String topic){
+        return watermarks.entrySet().stream()
+                .filter(e -> e.getKey().startsWith(topic + ":"))
+                .map(Map.Entry::getValue)
+                .min(Comparator.naturalOrder())
+                .orElse(Instant.MIN);
+    }
 }

@@ -32,11 +32,12 @@ public class AdClickEvent {
     private String clickId;
 
     // Metadata fields for processing
+    public static final String TOPIC = "ad_clicks";
     private transient int partition;
     private transient long offset;
 
     public String getWatermarkKey() {
-        return "ad_clicks:" + partition;
+        return TOPIC + ":" + partition;
     }
 
 }

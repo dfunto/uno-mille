@@ -4,7 +4,6 @@ import com.ebay.challenge.streamprocessor.model.AdClickEvent;
 import com.ebay.challenge.streamprocessor.model.AttributedPageView;
 import com.ebay.challenge.streamprocessor.model.PageViewEvent;
 import com.ebay.challenge.streamprocessor.sink.FileSink;
-import com.ebay.challenge.streamprocessor.sink.SqliteSink;
 import com.ebay.challenge.streamprocessor.state.ClickStateStore;
 import com.ebay.challenge.streamprocessor.state.PageViewStore;
 import com.ebay.challenge.streamprocessor.state.WatermarkTracker;
@@ -14,6 +13,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -56,9 +56,15 @@ public class JoinEngine {
         }
         clickStore.addClick(click);
         watermarkTracker.updateWatermark(click.getWatermarkKey(), click.getEventTime());
+        reprocessBufferedPageViews(click);
+    }
 
-        // Re-attribute page views that arrived before this click (out-of-order delivery).
-        // Window: page views strictly after the click and within the attribution window.
+    /**
+     * Re-attribute page views that arrived before this click (out-of-order delivery).
+     * Window: page views strictly after the click and within the attribution window.
+    */
+    private void reprocessBufferedPageViews(AdClickEvent click) {
+        log.debug("Checking buffered pages for click {} re-attribution due to late click", click.getClickId());
         List<PageViewEvent> pageViews = pageStore.findUserPageViews(
                 click.getUserId(),
                 click.getEventTime(),
@@ -69,7 +75,7 @@ public class JoinEngine {
             if (bestClick.isEmpty())
                 continue;
             outputSink.write(AttributedPageView.from(pageView, bestClick.get()));
-            log.debug("Re-attributed page view {} due to late click {}", pageView.getEventId(), click.getClickId());
+            log.info("Re-attributed page view {} due to late click {}", pageView.getEventId(), click.getClickId());
         }
     }
 
@@ -85,14 +91,13 @@ public class JoinEngine {
      * @param pageView the page view event
      */
     public void processPageView(PageViewEvent pageView) {
-        log.debug("Processing page view: {}", pageView.getEventId());
+        log.info("Processing page view: {}", pageView.getEventId());
         boolean isEventLate = watermarkTracker.isTooLate(pageView.getWatermarkKey(), pageView.getEventTime());
         if (isEventLate) {
             // # TODO Implement dead letter queue?
             log.warn("Page view event: {} is too late, dropping.", pageView.getEventId());
             return;
         }
-
         pageStore.addPageView(pageView);
 
         Optional<AdClickEvent> clickEvent = clickStore.findAttributableClick(pageView.getUserId(), pageView.getEventTime(), ATTRIBUTION_WINDOW);
@@ -110,21 +115,14 @@ public class JoinEngine {
      */
     @Scheduled(fixedRate = 30000)
     public void evictOldState() {
-        log.debug("Running state eviction");
-//        clickStore.evictOldClicks();
-//        for (Integer partition : pageViewBuffer.getPartitions()) {
-//            Instant watermark = watermarkTracker.getWatermark(partition);
-//            if(watermarkTracker.isWatermarkStale(partition)) {
-//                log.info("Watermark for partition {} is stale", partition);
-//                watermarkTracker.updateWatermark(
-//                    partition,
-//                    watermark.plus(watermarkTracker.getAllowedLateness())
-//                );
-//            }
-//            flushAttributedPageViews(partition);
-//        }
-//        log.debug("Evicting clicks older than {}", cutoffTime);
-//        Integer evictedClicks = this.clickStore.evictOldClicks();
-//        log.debug("Evicted {} old clicks", evictedClicks);
+        log.info("Running state eviction");
+
+        Instant minClickWatermark = watermarkTracker.findMinWatermark(AdClickEvent.TOPIC);
+        int clicksEvicted = clickStore.evictOldClicks(minClickWatermark);
+        log.info("Evicted {} clicks older than {}", clicksEvicted, minClickWatermark);
+
+        Instant minPageWatermark = watermarkTracker.findMinWatermark(PageViewEvent.TOPIC);
+        int pagesEvicted = pageStore.evictOldPages(minPageWatermark);
+        log.info("Evicted {} pages older than {}", pagesEvicted, minPageWatermark);
     }
 }

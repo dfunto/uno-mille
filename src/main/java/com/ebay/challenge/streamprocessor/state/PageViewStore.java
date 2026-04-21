@@ -46,4 +46,26 @@ public class PageViewStore {
             return new ArrayList<>(pageViews);
         }
     }
+
+    /**
+     * Evict old pages that are beyond the retention window.
+     * Prevents unbounded memory growth.
+     * @param cutoffTime pages older than this time should be evicted
+     * @return number of pages evicted
+     */
+    public int evictOldPages(Instant cutoffTime) {
+        log.debug("Evicting pages older than {}", cutoffTime);
+
+        PageViewEvent cutoff = PageViewEvent.builder().eventTime(cutoffTime).build();
+        int counter = 0;
+        for (Map.Entry<String, TreeSet<PageViewEvent>> entry : state.entrySet()) {
+            TreeSet<PageViewEvent> pages = entry.getValue();
+            synchronized (pages) {
+                NavigableSet<PageViewEvent> old = pages.headSet(cutoff, false);
+                counter += old.size();
+                old.clear();
+            }
+        }
+        return counter;
+    }
 }
