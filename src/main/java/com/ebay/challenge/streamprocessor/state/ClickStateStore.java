@@ -4,7 +4,6 @@ import com.ebay.challenge.streamprocessor.model.AdClickEvent;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.Map;

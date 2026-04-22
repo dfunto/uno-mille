@@ -4,11 +4,6 @@ In online marketplaces, advertisers need to understand which campaigns drive pro
 
 This repository implements a **stream processor** that consumes two event streams, `ad_clicks` and `page_views`, and produces an output stream, `attributed_page_view`, representing the most recent ad click by the same user within 30 minutes of each page view, with support for out-of-order events up to 15 minutes late.
 
-
-**TODO ADD DIAGRAM HERE**
-
-
-
 ## Setup
 
 ### Requirements
@@ -95,6 +90,7 @@ Watermarks are also stored using ConcurrentHashMap using atomic `merge` updates.
 
 The output sink is using Sqlite for simplicity and local tests, WAL logs are enabled to allow concurrent reads/writes.   
 Writes can eventually become a bottleneck in production environments, this could be solved by using a database that supports concurrent writes with row-level locking.
+Another alternative is to batch the writes, but this would  
 
 
 ### Capacity / Scaling
@@ -105,4 +101,4 @@ The state size defines the memory requirement and is controlled by the eviction 
 
 To properly evaluate the state size we should measure the max concurrent active users and what is the average clicks and page views per user.
 
-# TODO - BETTER UNDERSTAND HOW MULTIPLE KAFKA INSTANCES WOULD BEHAVE
+Scaling to multiple processor instances requires co-partitioned joins. Both topics must have the same number of partitions and be keyed by `userId`. A single Kafka consumer (subscribed to both topics) with the `RangeAssignor` guarantees that the same partition numbers from both topics are assigned to the same consumer instance.

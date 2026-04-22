@@ -1,6 +1,9 @@
 # Outputs
 output/
 
+# Logs
+logs/
+
 # Maven build directory
 target/
 

@@ -15,7 +15,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Simulates a processor restart (e.g. pod eviction).
- *
  * Scenario:
  * 1. Process a batch of events and "commit" their offsets.
  * 2. Simulate a crash — all in-memory state is lost.
