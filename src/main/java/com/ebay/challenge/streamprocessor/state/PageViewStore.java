@@ -19,7 +19,8 @@ public class PageViewStore {
         log.debug("Adding page view {} for user {}", pageView.getEventId(), pageView.getUserId());
         TreeSet<PageViewEvent> pageViewEvents = state.computeIfAbsent(
                 pageView.getUserId(),
-                k -> new TreeSet<>(Comparator.comparing(PageViewEvent::getEventTime))
+                k -> new TreeSet<>(Comparator.comparing(PageViewEvent::getEventTime)
+                        .thenComparing(PageViewEvent::getOffset))  // Tie-breaker in case of same event time for two clicks
         );
         synchronized (pageViewEvents) {
             pageViewEvents.add(pageView);

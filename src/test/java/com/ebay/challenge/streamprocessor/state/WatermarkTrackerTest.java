@@ -17,7 +17,7 @@ class WatermarkTrackerTest {
     }
 
     @Test
-    void updateWatermark_advancesWatermark_whenEventIsNewer() {
+    void advancesWatermarkWhenEventIsNewer() {
         Instant t10 = Instant.parse("2024-01-01T12:10:00Z");
         Instant t20 = Instant.parse("2024-01-01T12:20:00Z");
 
@@ -28,7 +28,7 @@ class WatermarkTrackerTest {
     }
 
     @Test
-    void updateWatermark_doesNotGoBackward_whenEventIsOlder() {
+    void doesNotGoBackwardWhenEventIsOlder() {
         Instant t20 = Instant.parse("2024-01-01T12:20:00Z");
         Instant t10 = Instant.parse("2024-01-01T12:10:00Z");
 
@@ -39,7 +39,7 @@ class WatermarkTrackerTest {
     }
 
     @Test
-    void updateWatermark_doesNotGoBackward_whenEventIsEqual() {
+    void doesNotGoBackwardWhenEventIsEqual() {
         Instant t20 = Instant.parse("2024-01-01T12:20:00Z");
 
         watermarkTracker.updateWatermark("topic:0", t20);
@@ -49,7 +49,7 @@ class WatermarkTrackerTest {
     }
 
     @Test
-    void updateWatermark_tracksPartitionsIndependently() {
+    void tracksPartitionsIndependently() {
         Instant t10 = Instant.parse("2024-01-01T12:10:00Z");
         Instant t20 = Instant.parse("2024-01-01T12:20:00Z");
 

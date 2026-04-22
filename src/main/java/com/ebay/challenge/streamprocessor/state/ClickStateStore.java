@@ -38,7 +38,8 @@ public class ClickStateStore {
         log.debug("Adding click {} for user {}", click.getClickId(), click.getUserId());
         TreeSet<AdClickEvent> userEvents = state.computeIfAbsent(
             click.getUserId(),
-            k -> new TreeSet<>(Comparator.comparing(AdClickEvent::getEventTime))
+            k -> new TreeSet<>(Comparator.comparing(AdClickEvent::getEventTime)
+                    .thenComparing(AdClickEvent::getOffset))  // Tie-breaker in case of same event time for two clicks
         );
         synchronized (userEvents) {
             userEvents.add(click);

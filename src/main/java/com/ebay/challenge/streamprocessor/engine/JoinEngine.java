@@ -3,7 +3,7 @@ package com.ebay.challenge.streamprocessor.engine;
 import com.ebay.challenge.streamprocessor.model.AdClickEvent;
 import com.ebay.challenge.streamprocessor.model.AttributedPageView;
 import com.ebay.challenge.streamprocessor.model.PageViewEvent;
-import com.ebay.challenge.streamprocessor.sink.SqliteSink;
+import com.ebay.challenge.streamprocessor.sink.OutputSink;
 import com.ebay.challenge.streamprocessor.state.ClickStateStore;
 import com.ebay.challenge.streamprocessor.state.PageViewStore;
 import com.ebay.challenge.streamprocessor.state.WatermarkTracker;
@@ -34,7 +34,7 @@ public class JoinEngine {
     private final ClickStateStore clickStore;
     private final PageViewStore pageStore;
     private final WatermarkTracker watermarkTracker;
-    private final SqliteSink outputSink;
+    private final OutputSink outputSink;
 
     /**
      * Process an ad click event.
@@ -51,7 +51,6 @@ public class JoinEngine {
         log.debug("Processing click: {}", click.getClickId());
         boolean isEventLate = watermarkTracker.isTooLate(click.getWatermarkKey(), click.getEventTime());
         if (isEventLate) {
-            // # TODO Implement dead letter queue?
             log.warn("Click event: {} is too late, dropping.", click.getClickId());
             return;
         }
@@ -98,7 +97,7 @@ public class JoinEngine {
      * @param userId the user to reprocess buffered pages
      * @param eventTime the click event time that triggered the reprocess
      */
-    private void reprocessBufferedPageViews(String userId, Instant eventTime) {
+    public void reprocessBufferedPageViews(String userId, Instant eventTime) {
         log.debug("Checking buffered pages for userId {} in case of late click", userId);
         List<PageViewEvent> pageViews = pageStore.findUserPageViews(
                 userId,
@@ -129,17 +128,20 @@ public class JoinEngine {
     @Scheduled(fixedRate = 30000)
     public void evictOldState() {
         log.info("Running state eviction");
+        Duration allowedLateness = watermarkTracker.getAllowedLateness();
 
         Instant minClickWatermark = watermarkTracker.findMinWatermark(AdClickEvent.TOPIC);
         if (minClickWatermark.isAfter(Instant.MIN)) {
-            int clicksEvicted = clickStore.evictOldClicks(minClickWatermark);
-            log.info("Evicted {} clicks older than {}", clicksEvicted, minClickWatermark);
+            Instant clickCutoff = minClickWatermark.minus(ATTRIBUTION_WINDOW).minus(allowedLateness);
+            int clicksEvicted = clickStore.evictOldClicks(clickCutoff);
+            log.info("Evicted {} clicks older than {}", clicksEvicted, clickCutoff);
         }
 
         Instant minPageWatermark = watermarkTracker.findMinWatermark(PageViewEvent.TOPIC);
         if (minPageWatermark.isAfter(Instant.MIN)) {
-            int pagesEvicted = pageStore.evictOldPages(minPageWatermark);
-            log.info("Evicted {} pages older than {}", pagesEvicted, minPageWatermark);
+            Instant pageCutoff = minPageWatermark.minus(ATTRIBUTION_WINDOW).minus(allowedLateness);
+            int pagesEvicted = pageStore.evictOldPages(pageCutoff);
+            log.info("Evicted {} pages older than {}", pagesEvicted, pageCutoff);
         }
     }
 }

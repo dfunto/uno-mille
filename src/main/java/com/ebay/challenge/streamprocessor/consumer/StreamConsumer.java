@@ -49,7 +49,7 @@ public class StreamConsumer {
             click.setOffset(record.offset());
 
             joinEngine.processClick(click);
-//            acknowledgment.acknowledge();  # TODO undo this
+            acknowledgment.acknowledge();
 
             log.debug("Successfully processed ad click from partition {} offset {}", record.partition(), record.offset());
 
@@ -87,7 +87,7 @@ public class StreamConsumer {
             pageView.setOffset(record.offset());
 
             joinEngine.processPageView(pageView);
-//            acknowledgment.acknowledge();  # TODO undo this
+            acknowledgment.acknowledge();
 
             log.debug("Successfully processed page view from partition {} offset {}", record.partition(), record.offset());
 
