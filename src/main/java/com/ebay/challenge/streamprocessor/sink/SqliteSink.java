@@ -36,6 +36,11 @@ public class SqliteSink implements OutputSink {
 
             connection = DriverManager.getConnection("jdbc:sqlite:" + dbFile.getAbsolutePath());
             connection.setAutoCommit(true);
+
+            try (Statement stmt = connection.createStatement()) {
+                stmt.execute("PRAGMA journal_mode=WAL");
+            }
+
             createTable();
             log.info("Initialized SQLite output sink at {}", filePath);
         } catch (SQLException e) {

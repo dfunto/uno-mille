@@ -191,14 +191,14 @@ Example features:
 
 The data generator creates events covering these edge cases:
 
-| Scenario | Description | Expected Behavior |
-|----------|-------------|-------------------|
-| **Normal** | Click at 12:00, page view at 12:10 | Attributes to campaign |
-| **Out-of-order** | Page view arrives before its click | Handles via watermarks |
-| **Multiple clicks** | 2+ clicks in 30-min window | Attributes to most recent |
-| **Old click** | Click >30 minutes before page view | No attribution |
-| **Late event** | Event beyond allowed lateness (2 min) | Dropped |
-| **No click** | Page view with no prior click | Null attribution |
+| Scenario | Description                            | Expected Behavior |
+|----------|----------------------------------------|-------------------|
+| **Normal** | Click at 12:00, page view at 12:10     | Attributes to campaign |
+| **Out-of-order** | Page view arrives before its click     | Handles via watermarks |
+| **Multiple clicks** | 2+ clicks in 30-min window             | Attributes to most recent |
+| **Old click** | Click >30 minutes before page view     | No attribution |
+| **Late event** | Event beyond allowed lateness (15 min) | Dropped |
+| **No click** | Page view with no prior click          | Null attribution |
 
 ---
 

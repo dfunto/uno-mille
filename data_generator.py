@@ -128,7 +128,7 @@ def generate_test_data():
         'event_time': (base_time + timedelta(minutes=40)).isoformat(),
         'campaign_id': 'campaign_F',
         'click_id': 'click_5',
-        'processing_time': base_time + timedelta(minutes=50, seconds=0)  # 10 min late (beyond 2 min lateness)
+        'processing_time': base_time + timedelta(minutes=60, seconds=0)  # 20 min late (beyond 15 min lateness)
     })
 
     page_views.append({
