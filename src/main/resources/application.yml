@@ -14,6 +14,7 @@ kafka:
 
 # Output Configuration
 output:
+  type: sqlite
   database:
     path: ./output/attributed_page_views.db
 

@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.io.BufferedWriter;
@@ -20,6 +21,7 @@ import java.nio.file.Path;
  */
 @Slf4j
 @Component
+@ConditionalOnProperty(name = "output.type", havingValue = "file", matchIfMissing = true)
 public class FileSink implements OutputSink {
 
     private final ObjectMapper objectMapper;
@@ -34,7 +36,7 @@ public class FileSink implements OutputSink {
         this.filePath = filePath;
         Path path = Path.of(filePath);
         Files.createDirectories(path.getParent());
-        this.writer = new BufferedWriter(new FileWriter(path.toFile(), false));
+        this.writer = new BufferedWriter(new FileWriter(path.toFile(), true));
         log.info("Initialized FileSink at {}", filePath);
     }
 

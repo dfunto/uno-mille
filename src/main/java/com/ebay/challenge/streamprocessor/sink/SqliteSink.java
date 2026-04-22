@@ -4,6 +4,7 @@ import com.ebay.challenge.streamprocessor.model.AttributedPageView;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.io.File;
@@ -17,6 +18,7 @@ import java.sql.*;
  */
 @Slf4j
 @Component
+@ConditionalOnProperty(name = "output.type", havingValue = "sqlite")
 public class SqliteSink implements OutputSink {
 
     private final String filePath;
