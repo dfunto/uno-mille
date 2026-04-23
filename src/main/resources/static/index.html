@@ -162,6 +162,10 @@
     </div>
 
     <div id="tab-feed" class="tab-content active">
+        <div class="tl-controls">
+            <label>User:</label>
+            <select id="feed-user-select"><option value="">All users</option></select>
+        </div>
         <div id="feed"></div>
     </div>
     <div id="tab-timeline" class="tab-content">
@@ -212,13 +216,26 @@
         }
 
         function updateUserSelect() {
-            const current = userSelect.value;
             const users = Object.keys(userTimelines).sort();
+            const currentTl = userSelect.value;
             userSelect.innerHTML = '<option value="">-- select a user --</option>' +
-                users.map(u => `<option value="${u}"${u === current ? ' selected' : ''}>${u}</option>`).join('');
+                users.map(u => `<option value="${u}"${u === currentTl ? ' selected' : ''}>${u}</option>`).join('');
+            const currentFeed = feedUserSelect.value;
+            feedUserSelect.innerHTML = '<option value="">All users</option>' +
+                users.map(u => `<option value="${u}"${u === currentFeed ? ' selected' : ''}>${u}</option>`).join('');
         }
 
         userSelect.addEventListener('change', renderTimeline);
+
+        const feedUserSelect = document.getElementById('feed-user-select');
+        feedUserSelect.addEventListener('change', filterFeed);
+
+        function filterFeed() {
+            const selected = feedUserSelect.value;
+            for (const child of feed.children) {
+                child.style.display = (!selected || child.dataset.userId === selected) ? '' : 'none';
+            }
+        }
 
         function saveState() {
             try {
@@ -310,6 +327,7 @@
             // Live feed
             const div = document.createElement('div');
             div.className = `event ${type}`;
+            div.dataset.userId = d.userId || '';
             const procMs = data.processedAt ? new Date(data.processedAt).getTime() : 0;
             div.dataset.procTime = procMs;
             const evtTime = data.timestamp ? new Date(data.timestamp).toISOString().replace('T', ' ').slice(0, 23) : '';
@@ -326,6 +344,12 @@
                 }
             }
             if (!inserted) feed.appendChild(div);
+
+            // Apply user filter
+            const feedFilter = feedUserSelect.value;
+            if (feedFilter && div.dataset.userId !== feedFilter) {
+                div.style.display = 'none';
+            }
 
             while (feed.children.length > MAX_EVENTS) {
                 feed.removeChild(feed.lastChild);
