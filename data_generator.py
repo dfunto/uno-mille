@@ -7,12 +7,14 @@ Produces page_view and ad_click events to Kafka topics with realistic scenarios:
 - Multiple clicks in attribution windows
 """
 
+import argparse
 import json
 import random
 import time
 from datetime import datetime, timedelta
 from kafka import KafkaProducer
-from kafka.errors import NoBrokersAvailable
+from kafka.admin import KafkaAdminClient
+from kafka.errors import NoBrokersAvailable, UnknownTopicOrPartitionError
 
 
 def create_producer(bootstrap_servers='kafka:29092', max_retries=10):
@@ -122,13 +124,24 @@ def generate_test_data():
         'processing_time': base_time + timedelta(minutes=70, seconds=2)
     })
 
-    # User 5: Very late event (beyond allowed lateness) - should be dropped
+    # User 5: Very late click (beyond allowed lateness) - should be dropped
+    # An on-time click advances the users 5 ad_clicks watermark but is outside the attribution window.
+    # Then a following late click arrives with, which is before the cutoff so it gets dropped
+    # This should result in a page view without attribution, one click processed and one click dropped
+    ad_clicks.append({
+        'user_id': 'user_5',
+        'event_time': (base_time + timedelta(minutes=58)).isoformat(),
+        'campaign_id': 'campaign_G',
+        'click_id': 'click_5_a',
+        'processing_time': base_time + timedelta(minutes=58, seconds=1)
+    })
+
     ad_clicks.append({
         'user_id': 'user_5',
         'event_time': (base_time + timedelta(minutes=40)).isoformat(),
         'campaign_id': 'campaign_F',
-        'click_id': 'click_5',
-        'processing_time': base_time + timedelta(minutes=60, seconds=0)  # 20 min late (beyond 15 min lateness)
+        'click_id': 'click_5_b',
+        'processing_time': base_time + timedelta(minutes=60, seconds=0)
     })
 
     page_views.append({
@@ -193,9 +206,30 @@ def send_events_in_order(producer, page_views, ad_clicks):
     print("\n✓ All events sent successfully!")
 
 
+def drop_topics(bootstrap_servers='kafka:29092', topics=('page_views', 'ad_clicks')):
+    """Delete Kafka topics so the processor starts fresh."""
+    print(f"🗑  Dropping topics: {', '.join(topics)}")
+    admin = KafkaAdminClient(bootstrap_servers=bootstrap_servers)
+    try:
+        admin.delete_topics(list(topics))
+        print("✓ Topics deleted. Waiting for cleanup...")
+        time.sleep(3)
+    except UnknownTopicOrPartitionError:
+        print("✓ Topics did not exist, nothing to delete.")
+    finally:
+        admin.close()
+
+
 def main():
     """Main function to generate and send test data."""
+    parser = argparse.ArgumentParser(description="Generate test data for the streaming challenge")
+    parser.add_argument('-drop', action='store_true', help="Drop Kafka topics before sending events")
+    args = parser.parse_args()
+
     print("🚀 Starting data generator for streaming challenge...")
+
+    if args.drop:
+        drop_topics()
 
     # Create producer
     producer = create_producer()
@@ -221,7 +255,7 @@ def main():
     print("  - pv_2 (user_2): Should attribute to click_2 (campaign_B) - late click")
     print("  - pv_3 (user_3): Should attribute to click_3b (campaign_D) - latest click")
     print("  - pv_4 (user_4): Should NOT attribute - click too old (>30 min)")
-    print("  - pv_5 (user_5): Depends on lateness handling - click may be dropped")
+    print("  - pv_5 (user_5): Should NOT attribute - click_5 dropped (beyond 15min lateness)")
     print("  - pv_6 (user_6): Should NOT attribute - no click exists")
     print("=" * 80)
 

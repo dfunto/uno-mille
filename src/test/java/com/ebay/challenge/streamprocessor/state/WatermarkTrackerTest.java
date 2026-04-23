@@ -13,7 +13,7 @@ class WatermarkTrackerTest {
 
     @BeforeEach
     void setUp() {
-        watermarkTracker = new WatermarkTracker(2);
+        watermarkTracker = new WatermarkTracker(2, new com.ebay.challenge.streamprocessor.dashboard.EventBroadcaster(new com.fasterxml.jackson.databind.ObjectMapper()));
     }
 
     @Test

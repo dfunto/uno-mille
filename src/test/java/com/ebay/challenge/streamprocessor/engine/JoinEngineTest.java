@@ -1,5 +1,6 @@
 package com.ebay.challenge.streamprocessor.engine;
 
+import com.ebay.challenge.streamprocessor.dashboard.EventBroadcaster;
 import com.ebay.challenge.streamprocessor.model.AdClickEvent;
 import com.ebay.challenge.streamprocessor.model.AttributedPageView;
 import com.ebay.challenge.streamprocessor.model.PageViewEvent;
@@ -33,9 +34,10 @@ class JoinEngineTest {
     void setUp() {
         ClickStateStore clickStore = new ClickStateStore();
         PageViewStore pageStore = new PageViewStore();
-        WatermarkTracker watermarkTracker = new WatermarkTracker(15);
+        EventBroadcaster broadcaster = new EventBroadcaster(new com.fasterxml.jackson.databind.ObjectMapper());
+        WatermarkTracker watermarkTracker = new WatermarkTracker(15, broadcaster);
         outputSink = new InMemoryOutputSink();
-        joinEngine = new JoinEngine(clickStore, pageStore, watermarkTracker, outputSink);
+        joinEngine = new JoinEngine(clickStore, pageStore, watermarkTracker, outputSink, broadcaster);
     }
 
     @Test

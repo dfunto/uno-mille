@@ -38,7 +38,7 @@ docker-compose exec dev sqlite3 output/attributed_page_views.db "SELECT * FROM a
 | pv_2         | user_2  | 2024-01-01T12:15:00Z | [https://example.com/product2](https://example.com/product2) | campaign_B | click_2  |
 | pv_3         | user_3  | 2024-01-01T12:30:00Z | [https://example.com/product3](https://example.com/product3) | campaign_D | click_3b |
 | pv_4         | user_4  | 2024-01-01T13:10:00Z | [https://example.com/product4](https://example.com/product4) |            |          |
-| pv_5         | user_5  | 2024-01-01T12:45:00Z | [https://example.com/product5](https://example.com/product5) | campaign_F | click_5  |
+| pv_5         | user_5  | 2024-01-01T12:45:00Z | [https://example.com/product5](https://example.com/product5) |            |          |
 | pv_6         | user_6  | 2024-01-01T13:20:00Z | [https://example.com/product6](https://example.com/product6) |            |          |
 
 ### Unit tests

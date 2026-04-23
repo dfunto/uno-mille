@@ -1,5 +1,6 @@
 package com.ebay.challenge.streamprocessor.engine;
 
+import com.ebay.challenge.streamprocessor.dashboard.EventBroadcaster;
 import com.ebay.challenge.streamprocessor.model.AdClickEvent;
 import com.ebay.challenge.streamprocessor.model.AttributedPageView;
 import com.ebay.challenge.streamprocessor.model.PageViewEvent;
@@ -35,6 +36,7 @@ public class JoinEngine {
     private final PageViewStore pageStore;
     private final WatermarkTracker watermarkTracker;
     private final OutputSink outputSink;
+    private final EventBroadcaster eventBroadcaster;
 
     /**
      * Process an ad click event.
@@ -52,9 +54,11 @@ public class JoinEngine {
         boolean isEventLate = watermarkTracker.isTooLate(click.getWatermarkKey(), click.getEventTime());
         if (isEventLate) {
             log.warn("Click event: {} is too late, dropping.", click.getClickId());
+            eventBroadcaster.broadcastLateClick(click);
             return;
         }
         clickStore.addClick(click);
+        eventBroadcaster.broadcastClick(click);
         watermarkTracker.updateWatermark(click.getWatermarkKey(), click.getEventTime());
         reprocessBufferedPageViews(click.getUserId(), click.getEventTime());
     }
@@ -76,15 +80,20 @@ public class JoinEngine {
         boolean isEventLate = watermarkTracker.isTooLate(pageView.getWatermarkKey(), pageView.getEventTime());
         if (isEventLate) {
             log.warn("Page view event: {} is too late, dropping.", pageView.getEventId());
+            eventBroadcaster.broadcastLatePageView(pageView);
             return;
         }
         pageStore.addPageView(pageView);
+        eventBroadcaster.broadcastPageView(pageView);
+
         Optional<AdClickEvent> clickEvent = clickStore.findAttributableClick(
                 pageView.getUserId(),
                 pageView.getEventTime().minus(ATTRIBUTION_WINDOW),
                 pageView.getEventTime()
         );
-        outputSink.write(AttributedPageView.from(pageView, clickEvent.orElse(null)));
+        AttributedPageView attributed = AttributedPageView.from(pageView, clickEvent.orElse(null));
+        outputSink.write(attributed);
+        eventBroadcaster.broadcastAttribution(attributed);
 
         watermarkTracker.updateWatermark(pageView.getWatermarkKey(), pageView.getEventTime());
     }
@@ -113,7 +122,9 @@ public class JoinEngine {
             if (recentClick.isEmpty())
                 continue;
 
-            outputSink.write(AttributedPageView.from(pageView, recentClick.get()));
+            AttributedPageView reattributed = AttributedPageView.from(pageView, recentClick.get());
+            outputSink.write(reattributed);
+            eventBroadcaster.broadcastAttribution(reattributed);
             log.info("Re-attributed page view {} due to late click {}", pageView.getEventId(), recentClick.get().getClickId());
         }
     }

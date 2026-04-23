@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stream Attribution Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Menlo', 'Consolas', monospace; background: #0f1117; color: #e0e0e0; padding: 20px; }
+        h1 { font-size: 1.4rem; margin-bottom: 16px; color: #fff; }
+
+        /* Tabs */
+        .tabs { display: flex; gap: 4px; margin-bottom: 20px; }
+        .tab {
+            padding: 8px 20px; border-radius: 6px 6px 0 0; cursor: pointer;
+            background: #1a1d27; border: 1px solid #2a2d37; border-bottom: none;
+            color: #888; font-size: 0.8rem; font-weight: bold;
+        }
+        .tab.active { background: #22253a; color: #fff; border-color: #3a3d4a; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Stats */
+        .stats { display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
+        .stat {
+            padding: 12px 20px; border-radius: 8px; min-width: 140px;
+            background: #1a1d27; border: 1px solid #2a2d37;
+        }
+        .stat .label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: #888; }
+        .stat .value { font-size: 1.5rem; font-weight: bold; margin-top: 4px; }
+        .stat.click .value { color: #60a5fa; }
+        .stat.pageview .value { color: #34d399; }
+        .stat.attribution .value { color: #a78bfa; }
+        .stat.late .value { color: #f87171; }
+        .status { font-size: 0.75rem; margin-bottom: 12px; }
+        .status .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+        .status .dot.connected { background: #34d399; }
+        .status .dot.disconnected { background: #f87171; }
+
+        /* Event Feed */
+        #feed { display: flex; flex-direction: column; gap: 4px; max-height: 70vh; overflow-y: auto; }
+        .event {
+            padding: 8px 12px; border-radius: 6px; font-size: 0.8rem;
+            background: #1a1d27; border-left: 3px solid #333;
+            display: flex; gap: 12px; align-items: baseline;
+        }
+        .event .tag {
+            font-size: 0.65rem; font-weight: bold; text-transform: uppercase;
+            padding: 2px 6px; border-radius: 3px; min-width: 80px; text-align: center;
+        }
+        .event.CLICK { border-left-color: #60a5fa; }
+        .event.CLICK .tag { background: #1e3a5f; color: #60a5fa; }
+        .event.PAGE_VIEW { border-left-color: #34d399; }
+        .event.PAGE_VIEW .tag { background: #1a3a2a; color: #34d399; }
+        .event.ATTRIBUTION { border-left-color: #a78bfa; }
+        .event.ATTRIBUTION .tag { background: #2d1f5e; color: #a78bfa; }
+        .event.LATE_EVENT { border-left-color: #f87171; }
+        .event.LATE_EVENT .tag { background: #5f1e1e; color: #f87171; }
+        .event .time { color: #666; min-width: 360px; }
+        .event .time .processed { color: #555; }
+        .event .details { color: #ccc; }
+        .event .details span { color: #888; }
+
+        /* Timeline */
+        .tl-controls {
+            display: flex; align-items: center; gap: 12px; margin-bottom: 16px;
+        }
+        .tl-controls label { font-size: 0.75rem; color: #888; }
+        .tl-controls select {
+            background: #1a1d27; color: #e0e0e0; border: 1px solid #3a3d4a;
+            padding: 6px 12px; border-radius: 6px; font-family: inherit; font-size: 0.8rem;
+        }
+        .tl-empty { color: #666; font-size: 0.8rem; padding: 40px 20px; text-align: center; }
+
+        .tl-container {
+            background: #1a1d27; border-radius: 8px; padding: 20px;
+            border: 1px solid #2a2d37; position: relative;
+        }
+        .tl-legend {
+            display: flex; gap: 16px; margin-bottom: 16px; font-size: 0.7rem; color: #888;
+        }
+        .tl-legend-item { display: flex; align-items: center; gap: 5px; }
+        .tl-legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+        .tl-legend-line { width: 20px; height: 0; border-top: 2px dashed; }
+
+        .tl-track { position: relative; height: 160px; margin: 20px 0 8px; }
+        .tl-axis { position: absolute; left: 0; right: 0; height: 1px; background: #2a2d37; }
+        .tl-axis.clicks { top: 30%; }
+        .tl-axis.pageviews { top: 70%; }
+        .tl-axis-label {
+            position: absolute; left: -60px; font-size: 0.6rem; color: #555;
+            transform: translateY(-50%);
+        }
+        .tl-axis-label.clicks { top: 30%; }
+        .tl-axis-label.pageviews { top: 70%; }
+
+        .tl-node {
+            position: absolute; width: 14px; height: 14px; border-radius: 50%;
+            transform: translate(-50%, -50%); cursor: default; z-index: 2;
+            transition: transform 0.15s;
+        }
+        .tl-node:hover { transform: translate(-50%, -50%) scale(1.5); }
+        .tl-node.click { background: #60a5fa; top: 30%; }
+        .tl-node.pageview { background: #34d399; top: 70%; }
+        .tl-node.late { opacity: 0.4; }
+        .tl-tooltip {
+            display: none; position: absolute; background: #282c3a; color: #ddd;
+            padding: 8px 12px; border-radius: 6px; font-size: 0.7rem;
+            white-space: nowrap; z-index: 10; pointer-events: none;
+            bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+            border: 1px solid #3a3d4a; line-height: 1.5;
+        }
+        .tl-node:hover .tl-tooltip { display: block; }
+
+        .tl-link { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
+
+        /* Watermark line */
+        .tl-watermark {
+            position: absolute; top: 0; bottom: 0; width: 2px;
+            z-index: 3; pointer-events: none;
+        }
+        .tl-watermark-line {
+            position: absolute; top: 0; bottom: 0; width: 2px;
+        }
+        .tl-watermark.clicks .tl-watermark-line { background: rgba(96, 165, 250, 0.5); }
+        .tl-watermark.pageviews .tl-watermark-line { background: rgba(52, 211, 153, 0.5); }
+        .tl-watermark-label {
+            position: absolute; top: -18px; left: 50%; transform: translateX(-50%);
+            font-size: 0.55rem; white-space: nowrap; padding: 1px 4px;
+            border-radius: 3px;
+        }
+        .tl-watermark.clicks .tl-watermark-label { color: #60a5fa; background: #1e3a5f; }
+        .tl-watermark.pageviews .tl-watermark-label { color: #34d399; background: #1a3a2a; }
+        /* Shaded region to the left of watermark */
+        .tl-watermark-shade {
+            position: absolute; top: 0; bottom: 0; left: 0;
+            opacity: 0.07; pointer-events: none;
+        }
+        .tl-watermark.clicks .tl-watermark-shade { background: #60a5fa; }
+        .tl-watermark.pageviews .tl-watermark-shade { background: #34d399; }
+
+        .tl-time-labels {
+            display: flex; justify-content: space-between;
+            font-size: 0.6rem; color: #555; padding: 0 0 0 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Stream Attribution Dashboard</h1>
+    <div class="status" id="status"><span class="dot disconnected"></span>Connecting...</div>
+    <div class="stats">
+        <div class="stat click"><div class="label">Clicks</div><div class="value" id="cnt-click">0</div></div>
+        <div class="stat pageview"><div class="label">Page Views</div><div class="value" id="cnt-pageview">0</div></div>
+        <div class="stat attribution"><div class="label">Attributions</div><div class="value" id="cnt-attribution">0</div></div>
+        <div class="stat late"><div class="label">Late / Dropped</div><div class="value" id="cnt-late">0</div></div>
+    </div>
+
+    <div class="tabs">
+        <div class="tab active" data-tab="tab-feed">Live Feed</div>
+        <div class="tab" data-tab="tab-timeline">Timeline</div>
+        <button id="btn-clear" style="margin-left:auto;padding:6px 14px;border-radius:6px;border:1px solid #3a3d4a;background:#1a1d27;color:#f87171;font-size:0.75rem;cursor:pointer;font-family:inherit;">Clear</button>
+    </div>
+
+    <div id="tab-feed" class="tab-content active">
+        <div id="feed"></div>
+    </div>
+    <div id="tab-timeline" class="tab-content">
+        <div class="tl-controls">
+            <label>User:</label>
+            <select id="user-select"><option value="">-- select a user --</option></select>
+        </div>
+        <div id="timeline"></div>
+    </div>
+
+    <script>
+        // --- Tab switching ---
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById(tab.dataset.tab).classList.add('active');
+                if (tab.dataset.tab === 'tab-timeline') renderTimeline();
+            });
+        });
+
+        // --- Shared state ---
+        const counts = { CLICK: 0, PAGE_VIEW: 0, ATTRIBUTION: 0, LATE_EVENT: 0 };
+        const counterEls = {
+            CLICK: document.getElementById('cnt-click'),
+            PAGE_VIEW: document.getElementById('cnt-pageview'),
+            ATTRIBUTION: document.getElementById('cnt-attribution'),
+            LATE_EVENT: document.getElementById('cnt-late')
+        };
+        const feed = document.getElementById('feed');
+        const statusEl = document.getElementById('status');
+        const userSelect = document.getElementById('user-select');
+        const MAX_EVENTS = 500;
+        const STORAGE_KEY = 'dashboard_events';
+
+        let eventLog = [];
+        const userTimelines = {};
+        // Watermark history: array of { key, ts } for every advance
+        const watermarkHistory = [];
+
+        function getUserTimeline(userId) {
+            if (!userTimelines[userId]) {
+                userTimelines[userId] = { clicks: [], pageViews: [], attributions: [], lateEvents: [] };
+                updateUserSelect();
+            }
+            return userTimelines[userId];
+        }
+
+        function updateUserSelect() {
+            const current = userSelect.value;
+            const users = Object.keys(userTimelines).sort();
+            userSelect.innerHTML = '<option value="">-- select a user --</option>' +
+                users.map(u => `<option value="${u}"${u === current ? ' selected' : ''}>${u}</option>`).join('');
+        }
+
+        userSelect.addEventListener('change', renderTimeline);
+
+        function saveState() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(eventLog.slice(-MAX_EVENTS)));
+            } catch (e) { /* storage full */ }
+        }
+
+        function clearState() {
+            eventLog = [];
+            localStorage.removeItem(STORAGE_KEY);
+            counts.CLICK = counts.PAGE_VIEW = counts.ATTRIBUTION = counts.LATE_EVENT = 0;
+            Object.values(counterEls).forEach(el => el.textContent = '0');
+            Object.keys(userTimelines).forEach(k => delete userTimelines[k]);
+            watermarkHistory.length = 0;
+            feed.innerHTML = '';
+            document.getElementById('timeline').innerHTML = '';
+            updateUserSelect();
+        }
+
+        document.getElementById('btn-clear').addEventListener('click', clearState);
+
+        // --- Status ---
+        function setStatus(connected) {
+            statusEl.innerHTML = `<span class="dot ${connected ? 'connected' : 'disconnected'}"></span>${connected ? 'Connected' : 'Disconnected — reconnecting...'}`;
+        }
+
+        // --- Live Feed ---
+        function formatDetails(type, data) {
+            switch (type) {
+                case 'CLICK':
+                    return `<span>user:</span> ${data.userId} <span>click:</span> ${data.clickId} <span>campaign:</span> ${data.campaignId}`;
+                case 'PAGE_VIEW':
+                    return `<span>user:</span> ${data.userId} <span>event:</span> ${data.eventId} <span>url:</span> ${data.url}`;
+                case 'ATTRIBUTION':
+                    return `<span>user:</span> ${data.userId} <span>page:</span> ${data.pageViewId} ` +
+                        (data.attributed ? `<span>click:</span> ${data.clickId} <span>campaign:</span> ${data.campaignId}` : '<span style="color:#f87171">unattributed</span>');
+                case 'LATE_EVENT':
+                    return `<span>dropped ${data.sourceType}:</span> ${data.clickId || data.eventId} <span>user:</span> ${data.userId}`;
+                case 'WATERMARK':
+                    return `<span>key:</span> ${data.key} <span>watermark:</span> ${data.watermark}`;
+                default:
+                    return JSON.stringify(data);
+            }
+        }
+
+        function addEvent(type, data, fromRestore) {
+            // Watermark events update state but don't show in feed or count
+            if (type === 'WATERMARK') {
+                const d = data.data;
+                watermarkHistory.push({ key: d.key, ts: new Date(d.watermark).getTime() });
+                if (!fromRestore) {
+                    eventLog.push({ type, data });
+                    saveState();
+                }
+                if (document.getElementById('tab-timeline').classList.contains('active')) {
+                    scheduleTimelineRender();
+                }
+                return;
+            }
+
+            counts[type]++;
+            counterEls[type].textContent = counts[type];
+
+            if (!fromRestore) {
+                eventLog.push({ type, data });
+                saveState();
+            }
+
+            // Store for timeline
+            const d = data.data;
+            const ts = data.timestamp ? new Date(data.timestamp).getTime() : 0;
+            if (type === 'CLICK') {
+                getUserTimeline(d.userId).clicks.push({ ts, ...d });
+            } else if (type === 'PAGE_VIEW') {
+                getUserTimeline(d.userId).pageViews.push({ ts, ...d });
+            } else if (type === 'ATTRIBUTION') {
+                getUserTimeline(d.userId).attributions.push({ ts, ...d });
+            } else if (type === 'LATE_EVENT') {
+                const tl = getUserTimeline(d.userId);
+                tl.lateEvents.push({ ts, sourceType: d.sourceType, id: d.clickId || d.eventId });
+                // Also add as a click/pageview node so it appears on the timeline
+                if (d.sourceType === 'CLICK') {
+                    tl.clicks.push({ ts, clickId: d.clickId, userId: d.userId, campaignId: d.campaignId || 'N/A' });
+                } else if (d.sourceType === 'PAGE_VIEW') {
+                    tl.pageViews.push({ ts, eventId: d.eventId, userId: d.userId, url: d.url || 'N/A' });
+                }
+            }
+
+            // Live feed
+            const div = document.createElement('div');
+            div.className = `event ${type}`;
+            const procMs = data.processedAt ? new Date(data.processedAt).getTime() : 0;
+            div.dataset.procTime = procMs;
+            const evtTime = data.timestamp ? new Date(data.timestamp).toISOString().replace('T', ' ').slice(0, 23) : '';
+            const procTime = data.processedAt ? new Date(data.processedAt).toISOString().replace('T', ' ').slice(0, 23) : '';
+            div.innerHTML = `<span class="tag">${type.replace('_', ' ')}</span><span class="time"><span class="processed">event time:</span> ${evtTime} <span class="processed">processing time:</span> ${procTime}</span><span class="details">${formatDetails(type, d)}</span>`;
+
+            // Insert sorted by processing time (newest first)
+            let inserted = false;
+            for (const child of feed.children) {
+                if (procMs > Number(child.dataset.procTime)) {
+                    feed.insertBefore(div, child);
+                    inserted = true;
+                    break;
+                }
+            }
+            if (!inserted) feed.appendChild(div);
+
+            while (feed.children.length > MAX_EVENTS) {
+                feed.removeChild(feed.lastChild);
+            }
+
+            if (document.getElementById('tab-timeline').classList.contains('active')) {
+                scheduleTimelineRender();
+            }
+        }
+
+        // --- Attribution Timeline (single user) ---
+        let renderTimer = null;
+        function scheduleTimelineRender() {
+            if (!renderTimer) {
+                renderTimer = setTimeout(() => { renderTimer = null; renderTimeline(); }, 200);
+            }
+        }
+
+        function fmtTime(ms) {
+            return new Date(ms).toISOString().replace('T', ' ').slice(0, 19);
+        }
+
+        function fmtTimeShort(ms) {
+            return new Date(ms).toISOString().slice(11, 19);
+        }
+
+        function renderTimeline() {
+            const container = document.getElementById('timeline');
+            container.innerHTML = '';
+
+            const userId = userSelect.value;
+            if (!userId) {
+                container.innerHTML = '<div class="tl-empty">Select a user above to view their attribution timeline.</div>';
+                return;
+            }
+
+            const tl = userTimelines[userId];
+            if (!tl) {
+                container.innerHTML = '<div class="tl-empty">No events for this user yet.</div>';
+                return;
+            }
+
+            const allTs = [...tl.clicks.map(c => c.ts), ...tl.pageViews.map(p => p.ts)];
+            if (allTs.length === 0) {
+                container.innerHTML = '<div class="tl-empty">No events for this user yet.</div>';
+                return;
+            }
+
+            // Collect all watermark positions from history
+            const clickWatermarks = watermarkHistory.filter(w => w.key.startsWith('ad_clicks:'));
+            const pageViewWatermarks = watermarkHistory.filter(w => w.key.startsWith('page_views:'));
+
+            // Include watermark positions in axis range
+            const wmTimestamps = [...clickWatermarks.map(w => w.ts), ...pageViewWatermarks.map(w => w.ts)];
+            const allTsWithWm = [...allTs, ...wmTimestamps];
+
+            const minTs = Math.min(...allTsWithWm);
+            const maxTs = Math.max(...allTsWithWm);
+            const range = maxTs - minTs || 1;
+            const pad = range * 0.1;
+            const axisMin = minTs - pad;
+            const axisMax = maxTs + pad;
+            const axisRange = axisMax - axisMin;
+
+            function pct(ts) { return ((ts - axisMin) / axisRange * 100); }
+
+            const wrapper = document.createElement('div');
+            wrapper.className = 'tl-container';
+
+            // Legend
+            const legend = document.createElement('div');
+            legend.className = 'tl-legend';
+            legend.innerHTML = `
+                <div class="tl-legend-item"><div class="tl-legend-dot" style="background:#60a5fa"></div> Click</div>
+                <div class="tl-legend-item"><div class="tl-legend-dot" style="background:#34d399"></div> Page View</div>
+                <div class="tl-legend-item"><div class="tl-legend-line" style="border-color:#a78bfa"></div> Attribution</div>
+                <div class="tl-legend-item"><div class="tl-legend-dot" style="background:#f87171;opacity:0.4"></div> Dropped</div>
+                <div class="tl-legend-item"><div style="width:2px;height:14px;background:rgba(96,165,250,0.5)"></div> Watermark</div>
+            `;
+            wrapper.appendChild(legend);
+
+            // Track
+            const track = document.createElement('div');
+            track.className = 'tl-track';
+            track.style.marginLeft = '60px';
+
+            // Axis lines
+            track.innerHTML = `
+                <div class="tl-axis clicks"></div>
+                <div class="tl-axis pageviews"></div>
+                <div class="tl-axis-label clicks">Clicks</div>
+                <div class="tl-axis-label pageviews">Views</div>
+            `;
+
+            const lateIds = new Set(tl.lateEvents.map(l => l.id));
+
+            // Click nodes
+            for (const click of tl.clicks) {
+                const isLate = lateIds.has(click.clickId);
+                const node = document.createElement('div');
+                node.className = `tl-node click${isLate ? ' late' : ''}`;
+                node.style.left = pct(click.ts) + '%';
+                node.innerHTML = `<div class="tl-tooltip">${isLate ? '<span style="color:#f87171">[DROPPED]</span> ' : ''}Click: ${click.clickId}<br>Campaign: ${click.campaignId}<br>Time: ${fmtTime(click.ts)}</div>`;
+                track.appendChild(node);
+            }
+
+            // Page view nodes
+            for (const pv of tl.pageViews) {
+                const isLate = lateIds.has(pv.eventId);
+                const node = document.createElement('div');
+                node.className = `tl-node pageview${isLate ? ' late' : ''}`;
+                node.style.left = pct(pv.ts) + '%';
+                node.innerHTML = `<div class="tl-tooltip">${isLate ? '<span style="color:#f87171">[DROPPED]</span> ' : ''}Page: ${pv.eventId}<br>URL: ${pv.url}<br>Time: ${fmtTime(pv.ts)}</div>`;
+                track.appendChild(node);
+            }
+
+            // Attribution links (SVG)
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('class', 'tl-link');
+            svg.setAttribute('preserveAspectRatio', 'none');
+
+            for (const attr of tl.attributions) {
+                if (!attr.attributed) continue;
+                const click = tl.clicks.find(c => c.clickId === attr.clickId);
+                const pv = tl.pageViews.find(p => p.eventId === attr.pageViewId);
+                if (!click || !pv) continue;
+
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', pct(click.ts) + '%');
+                line.setAttribute('y1', '30%');
+                line.setAttribute('x2', pct(pv.ts) + '%');
+                line.setAttribute('y2', '70%');
+                line.setAttribute('stroke', '#a78bfa');
+                line.setAttribute('stroke-width', '2');
+                line.setAttribute('stroke-dasharray', '5,4');
+                line.setAttribute('opacity', '0.7');
+                svg.appendChild(line);
+            }
+            track.appendChild(svg);
+
+            // Watermark vertical lines — show every watermark advance
+            function addWatermarkLines(wmList, cssClass, label) {
+                // Deduplicate by timestamp
+                const seen = new Set();
+                for (const wm of wmList) {
+                    if (seen.has(wm.ts)) continue;
+                    seen.add(wm.ts);
+
+                    const pos = pct(wm.ts);
+                    if (pos < 0 || pos > 100) continue;
+
+                    const el = document.createElement('div');
+                    el.className = `tl-watermark ${cssClass}`;
+                    el.style.left = pos + '%';
+
+                    const line = document.createElement('div');
+                    line.className = 'tl-watermark-line';
+                    el.appendChild(line);
+
+                    const lbl = document.createElement('div');
+                    lbl.className = 'tl-watermark-label';
+                    lbl.textContent = `${label} wm: ${fmtTimeShort(wm.ts)}`;
+                    el.appendChild(lbl);
+
+                    track.appendChild(el);
+                }
+            }
+
+            addWatermarkLines(clickWatermarks, 'clicks', 'clicks');
+            addWatermarkLines(pageViewWatermarks, 'pageviews', 'views');
+
+            wrapper.appendChild(track);
+
+            // Time labels
+            const labels = document.createElement('div');
+            labels.className = 'tl-time-labels';
+            labels.style.marginLeft = '60px';
+            labels.innerHTML = `<span>${fmtTime(minTs)}</span><span>${fmtTime(maxTs)}</span>`;
+            wrapper.appendChild(labels);
+
+            container.appendChild(wrapper);
+        }
+
+        // --- SSE Connection ---
+        function connect() {
+            const es = new EventSource('/api/events/stream');
+            es.onopen = () => setStatus(true);
+            es.onerror = () => { setStatus(false); es.close(); setTimeout(connect, 3000); };
+            ['CLICK', 'PAGE_VIEW', 'ATTRIBUTION', 'LATE_EVENT', 'WATERMARK'].forEach(type => {
+                es.addEventListener(type, e => {
+                    try { addEvent(type, JSON.parse(e.data)); } catch (err) { console.error(err); }
+                });
+            });
+        }
+
+        // --- Restore from localStorage ---
+        try {
+            const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+            for (const entry of saved) {
+                addEvent(entry.type, entry.data, true);
+            }
+            eventLog = saved;
+        } catch (e) { /* corrupt data — start fresh */ }
+
+        connect();
+    </script>
+</body>
+</html>

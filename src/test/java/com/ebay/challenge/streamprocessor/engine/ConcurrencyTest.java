@@ -1,5 +1,6 @@
 package com.ebay.challenge.streamprocessor.engine;
 
+import com.ebay.challenge.streamprocessor.dashboard.EventBroadcaster;
 import com.ebay.challenge.streamprocessor.model.AdClickEvent;
 import com.ebay.challenge.streamprocessor.model.AttributedPageView;
 import com.ebay.challenge.streamprocessor.model.PageViewEvent;
@@ -27,9 +28,10 @@ public class ConcurrencyTest {
     void setUp() {
         ClickStateStore clickStore = new ClickStateStore();
         PageViewStore pageViewStore = new PageViewStore();
-        WatermarkTracker watermarkTracker = new WatermarkTracker(2);
+        EventBroadcaster broadcaster = new EventBroadcaster(new com.fasterxml.jackson.databind.ObjectMapper());
+        WatermarkTracker watermarkTracker = new WatermarkTracker(2, broadcaster);
         outputSink = new InMemoryOutputSink();
-        joinEngine = new JoinEngine(clickStore, pageViewStore, watermarkTracker, outputSink);
+        joinEngine = new JoinEngine(clickStore, pageViewStore, watermarkTracker, outputSink, broadcaster);
     }
 
     @RepeatedTest(3) // Try to catch race conditions

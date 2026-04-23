@@ -1,5 +1,6 @@
 package com.ebay.challenge.streamprocessor.engine;
 
+import com.ebay.challenge.streamprocessor.dashboard.EventBroadcaster;
 import com.ebay.challenge.streamprocessor.model.AdClickEvent;
 import com.ebay.challenge.streamprocessor.model.AttributedPageView;
 import com.ebay.challenge.streamprocessor.model.PageViewEvent;
@@ -25,11 +26,13 @@ import static org.junit.jupiter.api.Assertions.*;
 class RestartTest {
 
     private JoinEngine createEngine(InMemoryOutputSink sink) {
+        EventBroadcaster broadcaster = new EventBroadcaster(new com.fasterxml.jackson.databind.ObjectMapper());
         return new JoinEngine(
                 new ClickStateStore(),
                 new PageViewStore(),
-                new WatermarkTracker(15),
-                sink
+                new WatermarkTracker(15, broadcaster),
+                sink,
+                broadcaster
         );
     }
 

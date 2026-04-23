@@ -1,5 +1,6 @@
 package com.ebay.challenge.streamprocessor.state;
 
+import com.ebay.challenge.streamprocessor.dashboard.EventBroadcaster;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -24,9 +25,12 @@ public class WatermarkTracker {
     @Getter
     private final Duration allowedLateness;
     private final ConcurrentHashMap<String, Instant> watermarks = new ConcurrentHashMap<>();
+    private final EventBroadcaster eventBroadcaster;
 
-    public WatermarkTracker(@Value("${watermark.allowed-lateness-minutes:15}") int allowedLatenessMinutes) {
+    public WatermarkTracker(@Value("${watermark.allowed-lateness-minutes:15}") int allowedLatenessMinutes,
+                            EventBroadcaster eventBroadcaster) {
         this.allowedLateness = Duration.ofMinutes(allowedLatenessMinutes);
+        this.eventBroadcaster = eventBroadcaster;
         log.info("Initialized WatermarkTracker with allowed lateness: {} minutes", allowedLatenessMinutes);
     }
 
@@ -43,11 +47,15 @@ public class WatermarkTracker {
      */
     public void updateWatermark(String key, Instant eventTime) {
         log.debug("Updating watermark for key {} with event time {}", key, eventTime);
+        Instant previous = watermarks.getOrDefault(key, Instant.MIN);
         watermarks.merge(
             key,
             eventTime,
             (current, incoming) -> incoming.isAfter(current) ? incoming : current
         );
+        if (eventTime.isAfter(previous)) {
+            eventBroadcaster.broadcastWatermark(key, eventTime);
+        }
     }
 
     /**
