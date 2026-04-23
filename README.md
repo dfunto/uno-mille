@@ -16,9 +16,10 @@ To test the system a python script generates events that cover the following sce
 
 ```mermaid
 graph LR
+    PY[data_generator.py] --> KC
+    PY --> KP
+
     subgraph Kafka
-        PY[data_generator.py] --> KC
-        PY --> KP
         KC[ad_clicks topic]
         KP[page_views topic]
     end
