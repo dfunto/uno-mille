@@ -4,11 +4,21 @@ In online marketplaces, advertisers need to understand which campaigns drive pro
 
 This repository implements a **stream processor** that consumes two event streams, `ad_clicks` and `page_views`, and produces an output stream, `attributed_page_view`, representing the most recent ad click by the same user within 30 minutes of each page view, with support for out-of-order events up to 15 minutes late.
 
+To test the system a python script generates events that cover the following scenarios:
+- Normal - click before page view
+- Click arrives AFTER page view (out of order, within lateness)
+- Multiple clicks in window (should pick latest)
+- Click outside 30-minute window (should NOT be attributed)
+- Very late click (beyond allowed lateness - should be dropped)
+- No click page view without attribution
+
 ## Architecture
 
 ```mermaid
 graph LR
     subgraph Kafka
+        PY[data_generator.py] --> KC
+        PY --> KP
         KC[ad_clicks topic]
         KP[page_views topic]
     end
@@ -79,20 +89,22 @@ docker-compose exec dev python data_generator.py
 # Check results in Sqlite database
 docker-compose exec dev sqlite3 output/attributed_page_views.db "SELECT * FROM attributed_page_views ORDER BY 1"
 ```
+
 ### Results
 
-| page_view_id | user_id | event_time           | url                                                          | campaign   | click_id |
-| ------------ | ------- | -------------------- | ------------------------------------------------------------ | ---------- | -------- |
-| pv_1         | user_1  | 2024-01-01T12:10:00Z | [https://example.com/product1](https://example.com/product1) | campaign_A | click_1  |
-| pv_2         | user_2  | 2024-01-01T12:15:00Z | [https://example.com/product2](https://example.com/product2) | campaign_B | click_2  |
-| pv_3         | user_3  | 2024-01-01T12:30:00Z | [https://example.com/product3](https://example.com/product3) | campaign_D | click_3b |
-| pv_4         | user_4  | 2024-01-01T13:10:00Z | [https://example.com/product4](https://example.com/product4) |            |          |
-| pv_5         | user_5  | 2024-01-01T12:45:00Z | [https://example.com/product5](https://example.com/product5) |            |          |
-| pv_6         | user_6  | 2024-01-01T13:20:00Z | [https://example.com/product6](https://example.com/product6) |            |          |
 
-### Dashboard
+| page_view_id | user_id | event_time           | url                          | campaign   | click_id | scenario                                     |
+| ------------ | ------- | -------------------- | ---------------------------- | ---------- | -------- | -------------------------------------------- |
+| pv_1         | user_1  | 2024-01-01T12:10:00Z | https://example.com/product1 | campaign_A | click_1  | Normal — click before page view              |
+| pv_2         | user_2  | 2024-01-01T12:15:00Z | https://example.com/product2 | campaign_B | click_2  | Out-of-order — click arrives after page view  |
+| pv_3         | user_3  | 2024-01-01T12:30:00Z | https://example.com/product3 | campaign_D | click_3b | Multiple clicks — picks the latest in window |
+| pv_4         | user_4  | 2024-01-01T13:10:00Z | https://example.com/product4 |            |          | Click outside 30-min window — no attribution |
+| pv_5         | user_5  | 2024-01-01T12:45:00Z | https://example.com/product5 |            |          | Late click dropped — beyond allowed lateness |
+| pv_6         | user_6  | 2024-01-01T13:20:00Z | https://example.com/product6 |            |          | No click — page view without any click       |
 
-A real-time web dashboard is served at [http://localhost:8080](http://localhost:8080) when the processor is running.
+### Dashboard (Bonus)
+
+A real-time web dashboard is served at [http://localhost:8080](http://localhost:8080) when the processor is running. Built with vanilla HTML/JS and Server-Sent Events.
 
 Features:
 - **Live Feed** — scrolling event stream showing clicks, page views, attributions, and dropped events as they are processed
@@ -111,16 +123,24 @@ Use the **Clear** button to reset all stored events and counters.
 docker-compose exec dev mvn test -pl .
 ```
 
+Test coverage:
+- **JoinEngineTest** — click before page view, click after page view (out-of-order), multiple clicks in window, click outside attribution window, late event dropping, page view without any click
+- **RestartTest** — process half the events, simulate crash (lose all in-memory state), rebuild engine and replay from committed offsets, verify final output matches a no-crash run
+- **ConcurrencyTest** — concurrent partition processing, concurrent clicks and page views for the same user (repeated 3x to catch race conditions)
+- **WatermarkTrackerTest** — watermark advances, does not go backward, tracks partitions independently
+
 ## Implementation Design
 
 ### Watermark logic
 
 Because `ad_clicks` and `page_views` are consumed by separate threads, a click can arrive after its corresponding page view. 
-Watermarks allows the processor to handle out-of-order delivery.
+Watermarks allow the processor to handle out-of-order delivery.
 
 The watermark will keep track of the latest received event time for each topic and partition, and it will only advance monotonically (never backwards).  
 This way if a click or page event comes late we can safely drop that event in case it arrives later than the accepted window (15 min).  
 Watermark storage key format: `"topic:partition"`
+
+A scheduled eviction task runs every 30 seconds, removing clicks and page views older than `min_watermark - attribution_window - allowed_lateness` to prevent unbounded memory growth.
 
 ### Write semantics
 
@@ -133,7 +153,12 @@ Data is stored in a SQLite database table and new records are merged based on pa
 ### Delivery guarantees
 
 Delivery is done `at-least-once` where the offsets are committed only after the sink successfully writes the record to the database.
-On crash/restart offsets that are still pending would end up being re-processed, as mentioned in [Write semantic](#write-semantics), records are overwritten in the database table guaranteeing an idempotent output.
+On crash/restart, offsets that are still pending would end up being re-processed. As mentioned in [Write semantics](#write-semantics), records are upserted by `page_view_id` in the database, guaranteeing idempotent output.
+
+Failure scenarios:
+- **Processor crash** — uncommitted offsets are replayed on restart. Upsert semantics ensure no duplicate output.
+- **Sink unavailable** — the write fails, the offset is not committed, and the event will be retried on the next poll.
+- **Kafka broker down** — the consumer will keep retrying connections using Spring Kafka's built-in retry mechanism until the broker is available again.
 
 ### Concurrency model
 
@@ -144,12 +169,12 @@ In a rare case where two events have the exact same event time the Kafka offset 
 
 Locks are managed on per-user TreeSets, in other words, different users can be processed in parallel without issues.
 
-Watermarks are also stored using ConcurrentHashMap using atomic `merge` updates. 
+Watermarks are also stored using ConcurrentHashMap with atomic `merge` updates to prevent concurrent partition threads from accidentally moving a watermark backward.
 
-The output sink is using Sqlite for simplicity and local tests, WAL logs are enabled to allow concurrent reads/writes.   
-Writes can eventually become a bottleneck in production environments, this could be solved by using a database that supports concurrent writes with row-level locking.
-Another alternative is to batch the writes, but this would  
+The output sink uses SQLite for simplicity and local tests, with WAL mode enabled to allow concurrent reads/writes.
+In production, writes could become a bottleneck, this could be solved by using a database with row-level locking or by batching writes at the cost of slightly higher latency.
 
+Duplicate clicks are handled naturally: the `TreeSet` stores clicks sorted by event time (with offset as tie-breaker), and `findAttributableClick` always picks the latest click in the window. Since the output sink upserts by `page_view_id`, duplicate attributions produce the same row.
 
 ### Capacity / Scaling
 
