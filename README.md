@@ -124,10 +124,10 @@ docker-compose exec dev mvn test -pl .
 ```
 
 Test coverage:
-- **JoinEngineTest** — click before page view, click after page view (out-of-order), multiple clicks in window, click outside attribution window, late event dropping, page view without any click
-- **RestartTest** — process half the events, simulate crash (lose all in-memory state), rebuild engine and replay from committed offsets, verify final output matches a no-crash run
-- **ConcurrencyTest** — concurrent partition processing, concurrent clicks and page views for the same user (repeated 3x to catch race conditions)
-- **WatermarkTrackerTest** — watermark advances, does not go backward, tracks partitions independently
+- **JoinEngineTest**: click before page view, click after page view (out-of-order), multiple clicks in window, click outside attribution window, late event dropping, page view without any click
+- **RestartTest**: process half the events, simulate crash (lose all in-memory state), rebuild engine and replay from committed offsets, verify final output matches a no-crash run
+- **ConcurrencyTest**: concurrent partition processing, concurrent clicks and page views for the same user (repeated 3x to catch race conditions)
+- **WatermarkTrackerTest**: watermark advances, does not go backward, tracks partitions independently
 
 ## Implementation Design
 
