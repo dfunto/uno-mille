@@ -1,6 +1,7 @@
 package com.ebay.challenge.streamprocessor.model;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -16,7 +17,7 @@ import java.time.Instant;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class PageViewEvent {
+public class PageViewEvent implements ChangelogEvent {
 
     @JsonProperty("user_id")
     private String userId;
@@ -32,11 +33,24 @@ public class PageViewEvent {
     private String eventId;
 
     // Metadata fields for processing
-    public static final String TOPIC = "page_views";
+    public static final String WATERMARK_PREFIX = "page_views";
     private transient int partition;
     private transient long offset;
 
+    @Override
+    @JsonIgnore
+    public String getChangelogKey() {
+        return userId;
+    }
+
+    @Override
+    @JsonIgnore
+    public String getSourceTopic() {
+        return WATERMARK_PREFIX;
+    }
+
+    @JsonIgnore
     public String getWatermarkKey() {
-        return TOPIC + ":" + partition;
+        return WATERMARK_PREFIX + ":" + partition;
     }
 }

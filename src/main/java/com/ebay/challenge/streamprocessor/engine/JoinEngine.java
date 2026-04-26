@@ -141,14 +141,14 @@ public class JoinEngine {
         log.info("Running state eviction");
         Duration allowedLateness = watermarkTracker.getAllowedLateness();
 
-        Instant minClickWatermark = watermarkTracker.findMinWatermark(AdClickEvent.TOPIC);
+        Instant minClickWatermark = watermarkTracker.findMinWatermark(AdClickEvent.WATERMARK_PREFIX);
         if (minClickWatermark.isAfter(Instant.MIN)) {
             Instant clickCutoff = minClickWatermark.minus(ATTRIBUTION_WINDOW).minus(allowedLateness);
             int clicksEvicted = clickStore.evictOldClicks(clickCutoff);
             log.info("Evicted {} clicks older than {}", clicksEvicted, clickCutoff);
         }
 
-        Instant minPageWatermark = watermarkTracker.findMinWatermark(PageViewEvent.TOPIC);
+        Instant minPageWatermark = watermarkTracker.findMinWatermark(PageViewEvent.WATERMARK_PREFIX);
         if (minPageWatermark.isAfter(Instant.MIN)) {
             Instant pageCutoff = minPageWatermark.minus(ATTRIBUTION_WINDOW).minus(allowedLateness);
             int pagesEvicted = pageStore.evictOldPages(pageCutoff);

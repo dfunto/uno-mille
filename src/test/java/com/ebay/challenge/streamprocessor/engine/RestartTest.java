@@ -13,6 +13,8 @@ import org.junit.jupiter.api.Test;
 import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
+import com.ebay.challenge.streamprocessor.state.ChangelogProducer;
 
 /**
  * Simulates a processor restart (e.g. pod eviction).
@@ -28,8 +30,8 @@ class RestartTest {
     private JoinEngine createEngine(InMemoryOutputSink sink) {
         EventBroadcaster broadcaster = new EventBroadcaster(new com.fasterxml.jackson.databind.ObjectMapper());
         return new JoinEngine(
-                new ClickStateStore(),
-                new PageViewStore(),
+                new ClickStateStore(mock(ChangelogProducer.class)),
+                new PageViewStore(mock(ChangelogProducer.class)),
                 new WatermarkTracker(15, broadcaster),
                 sink,
                 broadcaster

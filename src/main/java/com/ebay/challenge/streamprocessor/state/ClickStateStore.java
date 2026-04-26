@@ -1,6 +1,7 @@
 package com.ebay.challenge.streamprocessor.state;
 
 import com.ebay.challenge.streamprocessor.model.AdClickEvent;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -19,10 +20,12 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class ClickStateStore {
 
     // UserId : Sorted set of clicks (sorted by event time ascending)
     private final ConcurrentHashMap<String, TreeSet<AdClickEvent>> state = new ConcurrentHashMap<>();
+    private final ChangelogProducer changelogProducer;
 
     /**
      * Add a click event to the state store.
@@ -30,6 +33,7 @@ public class ClickStateStore {
      * - Use locks for thread safety
      * - Store clicks sorted by event time (most recent first)
      * - Handle concurrent access properly
+     * - Write to changelog topic for crash recovery
      *
      * @param click the ad click event
      */
@@ -43,6 +47,7 @@ public class ClickStateStore {
         synchronized (userEvents) {
             userEvents.add(click);
         }
+        changelogProducer.write(click);
     }
 
     /**

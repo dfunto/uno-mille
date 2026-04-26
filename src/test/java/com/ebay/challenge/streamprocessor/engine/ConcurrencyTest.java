@@ -6,6 +6,7 @@ import com.ebay.challenge.streamprocessor.model.AttributedPageView;
 import com.ebay.challenge.streamprocessor.model.PageViewEvent;
 import com.ebay.challenge.streamprocessor.sink.InMemoryOutputSink;
 import com.ebay.challenge.streamprocessor.state.ClickStateStore;
+import com.ebay.challenge.streamprocessor.state.ChangelogProducer;
 import com.ebay.challenge.streamprocessor.state.PageViewStore;
 import com.ebay.challenge.streamprocessor.state.WatermarkTracker;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,6 +19,8 @@ import java.util.concurrent.*;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.Mockito.mock;
+
 
 public class ConcurrencyTest {
 
@@ -26,8 +29,8 @@ public class ConcurrencyTest {
 
     @BeforeEach
     void setUp() {
-        ClickStateStore clickStore = new ClickStateStore();
-        PageViewStore pageViewStore = new PageViewStore();
+        ClickStateStore clickStore = new ClickStateStore(mock(ChangelogProducer.class));
+        PageViewStore pageViewStore = new PageViewStore(mock(ChangelogProducer.class));
         EventBroadcaster broadcaster = new EventBroadcaster(new com.fasterxml.jackson.databind.ObjectMapper());
         WatermarkTracker watermarkTracker = new WatermarkTracker(2, broadcaster);
         outputSink = new InMemoryOutputSink();

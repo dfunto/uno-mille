@@ -14,6 +14,8 @@ import org.junit.jupiter.api.Test;
 import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
+import com.ebay.challenge.streamprocessor.state.ChangelogProducer;
 
 
 /**
@@ -32,8 +34,8 @@ class JoinEngineTest {
 
     @BeforeEach
     void setUp() {
-        ClickStateStore clickStore = new ClickStateStore();
-        PageViewStore pageStore = new PageViewStore();
+        ClickStateStore clickStore = new ClickStateStore(mock(ChangelogProducer.class));
+        PageViewStore pageStore = new PageViewStore(mock(ChangelogProducer.class));
         EventBroadcaster broadcaster = new EventBroadcaster(new com.fasterxml.jackson.databind.ObjectMapper());
         WatermarkTracker watermarkTracker = new WatermarkTracker(15, broadcaster);
         outputSink = new InMemoryOutputSink();

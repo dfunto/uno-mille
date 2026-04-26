@@ -186,3 +186,17 @@ The state size defines the memory requirement and is controlled by the eviction 
 To properly evaluate the state size we should measure the max concurrent active users and what is the average clicks and page views per user.
 
 Scaling to multiple processor instances requires co-partitioned joins. Both topics must have the same number of partitions and be keyed by `userId`. A single Kafka consumer (subscribed to both topics) with the `RangeAssignor` guarantees that the same partition numbers from both topics are assigned to the same consumer instance.
+
+### Known Limitations
+
+#### State recovery after long-running periods
+
+On restart, the processor replays from the last committed Kafka offset. Only uncommitted events are reprocessed, regardless of Kafka's retention policy. The state window covers up to 45 minutes (`attribution_window + allowed_lateness`), but offsets are committed after each successful write. This means most of the state window was backed by already-committed events that won't be replayed. A page view arriving after restart may miss a click that was in memory before the crash because that click's offset was committed long ago.
+
+Production stream processors solve this with changelog-backed state (Kafka Streams) or periodic checkpoints to durable storage (Flink). A simpler mitigation for this design would be to commit offsets further behind the current position, ensuring enough data is replayed on restart to rebuild the full state window, at the cost of longer restart times.
+
+#### Unbounded in-memory state under burst traffic
+
+State is held in-memory using `ConcurrentHashMap<String, TreeSet>`. Eviction is purely event-time-based: events older than `min_watermark - attribution_window - allowed_lateness` are removed every 30 seconds. If a burst of events arrives with event times within the 45-minute retention window, all are kept in memory regardless of volume. Since eviction depends on watermark advancement (which requires processing new events), pausing the consumer to relieve memory pressure would freeze eviction, creating a deadlock.
+
+Production systems (Kafka Streams, Flink) solve this with disk-backed state stores (RocksDB), decoupling state size from heap capacity.

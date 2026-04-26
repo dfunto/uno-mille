@@ -206,7 +206,10 @@ def send_events_in_order(producer, page_views, ad_clicks):
     print("\n✓ All events sent successfully!")
 
 
-def drop_topics(bootstrap_servers='kafka:29092', topics=('page_views', 'ad_clicks')):
+def drop_topics(
+    bootstrap_servers='kafka:29092',
+    topics=('page_views', 'ad_clicks', 'ad_clicks-changelog', 'page_views-changelog')
+):
     """Delete Kafka topics so the processor starts fresh."""
     print(f"🗑  Dropping topics: {', '.join(topics)}")
     admin = KafkaAdminClient(bootstrap_servers=bootstrap_servers)
