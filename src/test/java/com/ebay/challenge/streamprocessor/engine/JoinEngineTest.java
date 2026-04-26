@@ -34,12 +34,12 @@ class JoinEngineTest {
 
     @BeforeEach
     void setUp() {
-        ClickStateStore clickStore = new ClickStateStore(mock(ChangelogProducer.class));
-        PageViewStore pageStore = new PageViewStore(mock(ChangelogProducer.class));
+        ClickStateStore clickStore = new ClickStateStore();
+        PageViewStore pageStore = new PageViewStore();
         EventBroadcaster broadcaster = new EventBroadcaster(new com.fasterxml.jackson.databind.ObjectMapper());
         WatermarkTracker watermarkTracker = new WatermarkTracker(15, broadcaster);
         outputSink = new InMemoryOutputSink();
-        joinEngine = new JoinEngine(clickStore, pageStore, watermarkTracker, outputSink, broadcaster);
+        joinEngine = new JoinEngine(clickStore, pageStore, watermarkTracker, outputSink, broadcaster, mock(ChangelogProducer.class));
     }
 
     @Test

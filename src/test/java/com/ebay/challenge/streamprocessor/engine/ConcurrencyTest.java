@@ -29,12 +29,12 @@ public class ConcurrencyTest {
 
     @BeforeEach
     void setUp() {
-        ClickStateStore clickStore = new ClickStateStore(mock(ChangelogProducer.class));
-        PageViewStore pageViewStore = new PageViewStore(mock(ChangelogProducer.class));
+        ClickStateStore clickStore = new ClickStateStore();
+        PageViewStore pageViewStore = new PageViewStore();
         EventBroadcaster broadcaster = new EventBroadcaster(new com.fasterxml.jackson.databind.ObjectMapper());
         WatermarkTracker watermarkTracker = new WatermarkTracker(2, broadcaster);
         outputSink = new InMemoryOutputSink();
-        joinEngine = new JoinEngine(clickStore, pageViewStore, watermarkTracker, outputSink, broadcaster);
+        joinEngine = new JoinEngine(clickStore, pageViewStore, watermarkTracker, outputSink, broadcaster, mock(ChangelogProducer.class));
     }
 
     @RepeatedTest(3) // Try to catch race conditions

@@ -36,9 +36,11 @@ public class StreamConsumer {
      * - Handle errors appropriately
      */
     @KafkaListener(
+        id = "adClickListener",
         topics = "${kafka.topics.ad-clicks:ad_clicks}",
         groupId = "${kafka.consumer.group-id:stream-processor-group}",
-        containerFactory = "adClickListenerContainerFactory"
+        containerFactory = "adClickListenerContainerFactory",
+        autoStartup = "false"
     )
     public void consumeAdClick(ConsumerRecord<String, String> record, Acknowledgment acknowledgment) {
         try {
@@ -73,9 +75,11 @@ public class StreamConsumer {
      * - Handle errors appropriately
      */
     @KafkaListener(
+        id = "pageViewListener",
         topics = "${kafka.topics.page-views:page_views}",
         groupId = "${kafka.consumer.group-id:stream-processor-group}",
-        containerFactory = "pageViewListenerContainerFactory"
+        containerFactory = "pageViewListenerContainerFactory",
+        autoStartup = "false"
     )
     public void consumePageView(ConsumerRecord<String, String> record, Acknowledgment acknowledgment) {
         try {

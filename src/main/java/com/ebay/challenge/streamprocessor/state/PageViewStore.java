@@ -1,7 +1,6 @@
 package com.ebay.challenge.streamprocessor.state;
 
 import com.ebay.challenge.streamprocessor.model.PageViewEvent;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import java.time.Instant;
@@ -11,12 +10,10 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class PageViewStore {
 
     // UserId : Sorted set of page views (sorted by event time ascending)
     private final ConcurrentHashMap<String, TreeSet<PageViewEvent>> state = new ConcurrentHashMap<>();
-    private final ChangelogProducer changelogProducer;
 
     public void addPageView(PageViewEvent pageView) {
         log.debug("Adding page view {} for user {}", pageView.getEventId(), pageView.getUserId());
@@ -28,7 +25,6 @@ public class PageViewStore {
         synchronized (pageViewEvents) {
             pageViewEvents.add(pageView);
         }
-        changelogProducer.write(pageView);
     }
 
     /**

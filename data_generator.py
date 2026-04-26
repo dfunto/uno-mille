@@ -233,6 +233,7 @@ def main():
 
     if args.drop:
         drop_topics()
+        return
 
     # Create producer
     producer = create_producer()

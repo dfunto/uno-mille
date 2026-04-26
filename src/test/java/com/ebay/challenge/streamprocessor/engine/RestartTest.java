@@ -30,11 +30,12 @@ class RestartTest {
     private JoinEngine createEngine(InMemoryOutputSink sink) {
         EventBroadcaster broadcaster = new EventBroadcaster(new com.fasterxml.jackson.databind.ObjectMapper());
         return new JoinEngine(
-                new ClickStateStore(mock(ChangelogProducer.class)),
-                new PageViewStore(mock(ChangelogProducer.class)),
+                new ClickStateStore(),
+                new PageViewStore(),
                 new WatermarkTracker(15, broadcaster),
                 sink,
-                broadcaster
+                broadcaster,
+                mock(ChangelogProducer.class)
         );
     }
 

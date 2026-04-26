@@ -5,6 +5,7 @@ import com.ebay.challenge.streamprocessor.model.AdClickEvent;
 import com.ebay.challenge.streamprocessor.model.AttributedPageView;
 import com.ebay.challenge.streamprocessor.model.PageViewEvent;
 import com.ebay.challenge.streamprocessor.sink.OutputSink;
+import com.ebay.challenge.streamprocessor.state.ChangelogProducer;
 import com.ebay.challenge.streamprocessor.state.ClickStateStore;
 import com.ebay.challenge.streamprocessor.state.PageViewStore;
 import com.ebay.challenge.streamprocessor.state.WatermarkTracker;
@@ -37,6 +38,7 @@ public class JoinEngine {
     private final WatermarkTracker watermarkTracker;
     private final OutputSink outputSink;
     private final EventBroadcaster eventBroadcaster;
+    private final ChangelogProducer changelogProducer;
 
     /**
      * Process an ad click event.
@@ -58,6 +60,7 @@ public class JoinEngine {
             return;
         }
         clickStore.addClick(click);
+        changelogProducer.write(click);
         eventBroadcaster.broadcastClick(click);
         watermarkTracker.updateWatermark(click.getWatermarkKey(), click.getEventTime());
         reprocessBufferedPageViews(click.getUserId(), click.getEventTime());
@@ -84,6 +87,7 @@ public class JoinEngine {
             return;
         }
         pageStore.addPageView(pageView);
+        changelogProducer.write(pageView);
         eventBroadcaster.broadcastPageView(pageView);
 
         Optional<AdClickEvent> clickEvent = clickStore.findAttributableClick(
