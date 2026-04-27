@@ -28,8 +28,6 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class ChangelogProducer {
 
-    private static final String CHANGELOG_SUFFIX = "-changelog";
-
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final ObjectMapper objectMapper;
 
@@ -41,7 +39,7 @@ public class ChangelogProducer {
      */
     public void write(ChangelogEvent event) {
         String key = event.getChangelogKey();
-        String topic = event.getSourceTopic() + CHANGELOG_SUFFIX;
+        String topic = event.getChangelogTopic();
         try {
             String value = objectMapper.writeValueAsString(event);
             ProducerRecord<String, String> record = new ProducerRecord<>(

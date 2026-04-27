@@ -45,8 +45,8 @@ public class PageViewEvent implements ChangelogEvent {
 
     @Override
     @JsonIgnore
-    public String getSourceTopic() {
-        return WATERMARK_PREFIX;
+    public String getChangelogTopic() {
+        return WATERMARK_PREFIX + "-changelog";
     }
 
     @JsonIgnore

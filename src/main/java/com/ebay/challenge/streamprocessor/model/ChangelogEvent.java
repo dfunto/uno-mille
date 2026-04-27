@@ -2,6 +2,6 @@ package com.ebay.challenge.streamprocessor.model;
 
 public interface ChangelogEvent {
     String getChangelogKey();
-    String getSourceTopic();
+    String getChangelogTopic();
     int getPartition();
 }
