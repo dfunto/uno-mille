@@ -26,11 +26,8 @@ public class ClickStateStore {
 
     /**
      * Add a click event to the state store.
-     * Click storage (thread-safe)
-     * - Use locks for thread safety
-     * - Store clicks sorted by event time (most recent first)
-     * - Handle concurrent access properly
-     * - Write to changelog topic for crash recovery
+     * Thread-safe: uses per-user synchronized blocks.
+     * Clicks are stored sorted by event time ascending (with offset as tie-breaker).
      *
      * @param click the ad click event
      */

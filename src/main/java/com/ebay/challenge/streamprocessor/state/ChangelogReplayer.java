@@ -24,21 +24,16 @@ import java.util.stream.Collectors;
 
 /**
  * Rebuilds in-memory state from Kafka changelog topics on application startup.
- * <p>
- * Implements {@link SmartLifecycle} with the earliest phase ({@code Integer.MIN_VALUE})
- * to ensure state is fully restored before the main {@code @KafkaListener} consumers
- * start processing new events. The listeners are configured with {@code autoStartup = false}
+ * Implements SmartLifecycle with the earliest phase (Integer.MIN_VALUE)
+ * to ensure state is fully restored before the main KafkaListener consumers
+ * start processing new events. The listeners are configured with autoStartup = false
  * and are started by this component after replay completes.
- * <p>
  * Replay flow:
- * <ol>
- *   <li>Create a temporary {@link KafkaConsumer} with manual partition assignment (no group ID)</li>
- *   <li>Read each changelog topic from beginning to end</li>
- *   <li>Deserialize events and populate {@link ClickStateStore} / {@link PageViewStore} directly</li>
- *   <li>Start all registered {@code @KafkaListener} containers</li>
- * </ol>
- * <p>
- * Because events are written directly to the stores (bypassing {@link com.ebay.challenge.streamprocessor.engine.JoinEngine}),
+ * 1. Create a temporary KafkaConsumer with manual partition assignment (no group ID)
+ * 2. Read each changelog topic from beginning to end
+ * 3. Deserialize events and populate ClickStateStore / PageViewStore directly
+ * 4. Start all registered KafkaListener containers
+ * Because events are written directly to the stores (bypassing JoinEngine),
  * no changelog writes occur during replay — avoiding duplicate records.
  *
  * @see ChangelogProducer

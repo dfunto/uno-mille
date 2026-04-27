@@ -17,7 +17,7 @@ import java.nio.file.Path;
 /**
  * Writes attributed page view records to a local file in JSONL format (one JSON record per line).
  * Thread-safe: synchronized write ensures multiple partition threads don't interleave output.
- * File is recreated (truncated) on every startup. Flush-per-write ensures records are visible immediately.
+ * File is opened in append mode on startup. Flush-per-write ensures records are visible immediately.
  */
 @Slf4j
 @Component

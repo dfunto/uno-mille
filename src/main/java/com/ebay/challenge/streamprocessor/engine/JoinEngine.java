@@ -134,11 +134,9 @@ public class JoinEngine {
     }
 
     /**
-     * Scheduled task to evict old events from state.
+     * Scheduled task to evict old clicks and page views from state.
      * Runs every 30 seconds to prevent unbounded memory growth.
-     * State eviction logic:
-     * - Evict clicks older than the min watermark for all
-     * - Use clickStore.evictOldClicks() with appropriate cutoff time
+     * Cutoff: min_watermark - attribution_window - allowed_lateness per topic.
      */
     @Scheduled(fixedRate = 30000)
     public void evictOldState() {
