@@ -11,10 +11,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Writes state-change events to Kafka changelog topics for crash recovery.
- * Each event is serialized to JSON and sent to a topic derived from the event's
- * source topic name with a -changelog suffix (e.g. ad_clicks-changelog).
- * The changelog key is the user ID, and records are partitioned to match the
- * source partition for locality.
+ * Each event is serialized to JSON and sent to a changelog topic.
  * Changelog topics use delete-based retention (no compaction), so all events
  * within the retention window are preserved for full state rebuild on restart.
  *
