@@ -33,7 +33,7 @@ public class AdClickEvent implements ChangelogEvent {
     private String clickId;
 
     // Metadata fields for processing
-    public static final String WATERMARK_PREFIX = "ad_clicks";
+    private transient String topic;
     private transient int partition;
     private transient long offset;
 
@@ -43,15 +43,9 @@ public class AdClickEvent implements ChangelogEvent {
         return userId;
     }
 
-    @Override
-    @JsonIgnore
-    public String getChangelogTopic() {
-        return WATERMARK_PREFIX + "-changelog";
-    }
-
     @JsonIgnore
     public String getWatermarkKey() {
-        return WATERMARK_PREFIX + ":" + partition;
+        return topic + ":" + partition;
     }
 
 }

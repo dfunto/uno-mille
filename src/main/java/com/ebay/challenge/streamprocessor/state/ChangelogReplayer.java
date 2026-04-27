@@ -1,6 +1,7 @@
 package com.ebay.challenge.streamprocessor.state;
 
 import com.ebay.challenge.streamprocessor.model.AdClickEvent;
+import com.ebay.challenge.streamprocessor.model.ChangelogEvent;
 import com.ebay.challenge.streamprocessor.model.PageViewEvent;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -42,7 +43,6 @@ import java.util.stream.Collectors;
 @Component
 public class ChangelogReplayer implements SmartLifecycle {
 
-    private static final String CHANGELOG_SUFFIX = "-changelog";
     private static final Duration POLL_TIMEOUT = Duration.ofSeconds(2);
 
     private final ClickStateStore clickStore;
@@ -67,8 +67,8 @@ public class ChangelogReplayer implements SmartLifecycle {
         this.objectMapper = objectMapper;
         this.listenerRegistry = listenerRegistry;
         this.bootstrapServers = bootstrapServers;
-        this.clicksTopic = clicksTopic + CHANGELOG_SUFFIX;
-        this.pageViewsTopic = pageViewsTopic + CHANGELOG_SUFFIX;
+        this.clicksTopic = clicksTopic + ChangelogEvent.CHANGELOG_SUFFIX;
+        this.pageViewsTopic = pageViewsTopic + ChangelogEvent.CHANGELOG_SUFFIX;
     }
 
     @Override
@@ -129,11 +129,16 @@ public class ChangelogReplayer implements SmartLifecycle {
             for (ConsumerRecord<String, String> record : records) {
                 try {
                     T event = objectMapper.readValue(record.value(), eventType);
+                    String sourceTopic = topic.endsWith(ChangelogEvent.CHANGELOG_SUFFIX)
+                            ? topic.substring(0, topic.length() - ChangelogEvent.CHANGELOG_SUFFIX.length())
+                            : topic;
                     if (event instanceof AdClickEvent click) {
+                        click.setTopic(sourceTopic);
                         click.setPartition(record.partition());
                         click.setOffset(record.offset());
                         clickStore.addClick(click);
                     } else if (event instanceof PageViewEvent pageView) {
+                        pageView.setTopic(sourceTopic);
                         pageView.setPartition(record.partition());
                         pageView.setOffset(record.offset());
                         pageViewStore.addPageView(pageView);
@@ -184,7 +189,6 @@ public class ChangelogReplayer implements SmartLifecycle {
 
     @Override
     public int getPhase() {
-        // Run early, before other SmartLifecycle beans
         return Integer.MIN_VALUE;
     }
 

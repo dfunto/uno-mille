@@ -35,14 +35,16 @@ class RestartTest {
                 new WatermarkTracker(15, broadcaster),
                 sink,
                 broadcaster,
-                mock(ChangelogProducer.class)
+                mock(ChangelogProducer.class),
+                "ad_clicks",
+                "page_views"
         );
     }
 
     @Test
     void restartFromCommittedOffsets_producesCorrectResults() {
         // --- Batch 1: events that are processed and committed before crash ---
-        AdClickEvent click1 = AdClickEvent.builder()
+        AdClickEvent click1 = AdClickEvent.builder().topic("ad_clicks")
                 .userId("user_1")
                 .eventTime(Instant.parse("2024-01-01T12:00:00Z"))
                 .campaignId("campaign_A")
@@ -50,7 +52,7 @@ class RestartTest {
                 .partition(0).offset(0)
                 .build();
 
-        PageViewEvent pv1 = PageViewEvent.builder()
+        PageViewEvent pv1 = PageViewEvent.builder().topic("page_views")
                 .userId("user_1")
                 .eventTime(Instant.parse("2024-01-01T12:05:00Z"))
                 .url("https://example.com/p1")
@@ -58,7 +60,7 @@ class RestartTest {
                 .partition(0).offset(0)
                 .build();
 
-        AdClickEvent click2 = AdClickEvent.builder()
+        AdClickEvent click2 = AdClickEvent.builder().topic("ad_clicks")
                 .userId("user_2")
                 .eventTime(Instant.parse("2024-01-01T12:10:00Z"))
                 .campaignId("campaign_B")
@@ -67,7 +69,7 @@ class RestartTest {
                 .build();
 
         // --- Batch 2: events that were NOT committed before crash ---
-        PageViewEvent pv2 = PageViewEvent.builder()
+        PageViewEvent pv2 = PageViewEvent.builder().topic("page_views")
                 .userId("user_2")
                 .eventTime(Instant.parse("2024-01-01T12:15:00Z"))
                 .url("https://example.com/p2")
@@ -75,7 +77,7 @@ class RestartTest {
                 .partition(0).offset(1)
                 .build();
 
-        AdClickEvent click3 = AdClickEvent.builder()
+        AdClickEvent click3 = AdClickEvent.builder().topic("ad_clicks")
                 .userId("user_3")
                 .eventTime(Instant.parse("2024-01-01T12:20:00Z"))
                 .campaignId("campaign_C")
@@ -83,7 +85,7 @@ class RestartTest {
                 .partition(0).offset(2)
                 .build();
 
-        PageViewEvent pv3 = PageViewEvent.builder()
+        PageViewEvent pv3 = PageViewEvent.builder().topic("page_views")
                 .userId("user_3")
                 .eventTime(Instant.parse("2024-01-01T12:25:00Z"))
                 .url("https://example.com/p3")

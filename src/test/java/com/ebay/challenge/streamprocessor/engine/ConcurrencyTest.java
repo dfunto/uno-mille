@@ -34,7 +34,7 @@ public class ConcurrencyTest {
         EventBroadcaster broadcaster = new EventBroadcaster(new com.fasterxml.jackson.databind.ObjectMapper());
         WatermarkTracker watermarkTracker = new WatermarkTracker(2, broadcaster);
         outputSink = new InMemoryOutputSink();
-        joinEngine = new JoinEngine(clickStore, pageViewStore, watermarkTracker, outputSink, broadcaster, mock(ChangelogProducer.class));
+        joinEngine = new JoinEngine(clickStore, pageViewStore, watermarkTracker, outputSink, broadcaster, mock(ChangelogProducer.class), "ad_clicks", "page_views");
     }
 
     @RepeatedTest(3) // Try to catch race conditions
@@ -60,13 +60,13 @@ public class ConcurrencyTest {
                         Instant clickTime = base.plusSeconds(i * 60L);
                         Instant pvTime = clickTime.plusSeconds(300); // 5 min after click
 
-                        joinEngine.processClick(AdClickEvent.builder()
+                        joinEngine.processClick(AdClickEvent.builder().topic("ad_clicks")
                                 .userId(userId).clickId("click_" + partition + "_" + i)
                                 .campaignId("campaign_" + partition)
                                 .eventTime(clickTime).partition(partition).offset(i)
                                 .build());
 
-                        joinEngine.processPageView(PageViewEvent.builder()
+                        joinEngine.processPageView(PageViewEvent.builder().topic("page_views")
                                 .userId(userId).eventId("pv_" + partition + "_" + i)
                                 .url("https://example.com/p" + partition)
                                 .eventTime(pvTime).partition(partition).offset(i)
@@ -114,7 +114,7 @@ public class ConcurrencyTest {
         futures.add(executor.submit(() -> {
             try { latch.await(); } catch (InterruptedException e) { return; }
             for (int i = 0; i < numEvents; i++) {
-                joinEngine.processClick(AdClickEvent.builder()
+                joinEngine.processClick(AdClickEvent.builder().topic("ad_clicks")
                         .userId(userId).clickId("click_" + i).campaignId("campaign_" + i)
                         .eventTime(base.plusSeconds(i * 120L)).partition(0).offset(i)
                         .build());
@@ -125,7 +125,7 @@ public class ConcurrencyTest {
         futures.add(executor.submit(() -> {
             try { latch.await(); } catch (InterruptedException e) { return; }
             for (int i = 0; i < numEvents; i++) {
-                joinEngine.processPageView(PageViewEvent.builder()
+                joinEngine.processPageView(PageViewEvent.builder().topic("page_views")
                         .userId(userId).eventId("pv_" + i)
                         .url("https://example.com/p" + i)
                         .eventTime(base.plusSeconds(i * 120L + 60)).partition(0).offset(i)

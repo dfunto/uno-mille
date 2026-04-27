@@ -9,8 +9,8 @@ import com.ebay.challenge.streamprocessor.state.ChangelogProducer;
 import com.ebay.challenge.streamprocessor.state.ClickStateStore;
 import com.ebay.challenge.streamprocessor.state.PageViewStore;
 import com.ebay.challenge.streamprocessor.state.WatermarkTracker;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -28,7 +28,6 @@ import java.util.Optional;
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class JoinEngine {
 
     static final Duration ATTRIBUTION_WINDOW = Duration.ofMinutes(30);
@@ -39,6 +38,26 @@ public class JoinEngine {
     private final OutputSink outputSink;
     private final EventBroadcaster eventBroadcaster;
     private final ChangelogProducer changelogProducer;
+    private final String adClicksTopic;
+    private final String pageViewsTopic;
+
+    public JoinEngine(ClickStateStore clickStore,
+                      PageViewStore pageStore,
+                      WatermarkTracker watermarkTracker,
+                      OutputSink outputSink,
+                      EventBroadcaster eventBroadcaster,
+                      ChangelogProducer changelogProducer,
+                      @Value("${kafka.topics.ad-clicks:ad_clicks}") String adClicksTopic,
+                      @Value("${kafka.topics.page-views:page_views}") String pageViewsTopic) {
+        this.clickStore = clickStore;
+        this.pageStore = pageStore;
+        this.watermarkTracker = watermarkTracker;
+        this.outputSink = outputSink;
+        this.eventBroadcaster = eventBroadcaster;
+        this.changelogProducer = changelogProducer;
+        this.adClicksTopic = adClicksTopic;
+        this.pageViewsTopic = pageViewsTopic;
+    }
 
     /**
      * Process an ad click event.
@@ -143,14 +162,14 @@ public class JoinEngine {
         log.info("Running state eviction");
         Duration allowedLateness = watermarkTracker.getAllowedLateness();
 
-        Instant minClickWatermark = watermarkTracker.findMinWatermark(AdClickEvent.WATERMARK_PREFIX);
+        Instant minClickWatermark = watermarkTracker.findMinWatermark(adClicksTopic);
         if (minClickWatermark.isAfter(Instant.MIN)) {
             Instant clickCutoff = minClickWatermark.minus(ATTRIBUTION_WINDOW).minus(allowedLateness);
             int clicksEvicted = clickStore.evictOldClicks(clickCutoff);
             log.info("Evicted {} clicks older than {}", clicksEvicted, clickCutoff);
         }
 
-        Instant minPageWatermark = watermarkTracker.findMinWatermark(PageViewEvent.WATERMARK_PREFIX);
+        Instant minPageWatermark = watermarkTracker.findMinWatermark(pageViewsTopic);
         if (minPageWatermark.isAfter(Instant.MIN)) {
             Instant pageCutoff = minPageWatermark.minus(ATTRIBUTION_WINDOW).minus(allowedLateness);
             int pagesEvicted = pageStore.evictOldPages(pageCutoff);

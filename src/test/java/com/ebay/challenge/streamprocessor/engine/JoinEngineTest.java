@@ -39,12 +39,12 @@ class JoinEngineTest {
         EventBroadcaster broadcaster = new EventBroadcaster(new com.fasterxml.jackson.databind.ObjectMapper());
         WatermarkTracker watermarkTracker = new WatermarkTracker(15, broadcaster);
         outputSink = new InMemoryOutputSink();
-        joinEngine = new JoinEngine(clickStore, pageStore, watermarkTracker, outputSink, broadcaster, mock(ChangelogProducer.class));
+        joinEngine = new JoinEngine(clickStore, pageStore, watermarkTracker, outputSink, broadcaster, mock(ChangelogProducer.class), "ad_clicks", "page_views");
     }
 
     @Test
     void clickBeforePageView() {
-        AdClickEvent click = AdClickEvent.builder()
+        AdClickEvent click = AdClickEvent.builder().topic("ad_clicks")
                 .userId("user_1")
                 .eventTime(Instant.parse("2024-01-01T12:05:00Z"))
                 .campaignId("campaign_A")
@@ -53,7 +53,7 @@ class JoinEngineTest {
                 .offset(0)
                 .build();
 
-        PageViewEvent pageView = PageViewEvent.builder()
+        PageViewEvent pageView = PageViewEvent.builder().topic("page_views")
                 .userId("user_1")
                 .eventTime(Instant.parse("2024-01-01T12:10:00Z"))
                 .url("https://example.com/p1")
@@ -75,7 +75,7 @@ class JoinEngineTest {
     void clickAfterPageView() {
         // Click event time is BEFORE page view event time,
         // but the click ARRIVES after the page view (out-of-order processing)
-        AdClickEvent click = AdClickEvent.builder()
+        AdClickEvent click = AdClickEvent.builder().topic("ad_clicks")
                 .userId("user_2")
                 .eventTime(Instant.parse("2024-01-01T12:05:00Z"))
                 .campaignId("campaign_B")
@@ -84,7 +84,7 @@ class JoinEngineTest {
                 .offset(0)
                 .build();
 
-        PageViewEvent pageView = PageViewEvent.builder()
+        PageViewEvent pageView = PageViewEvent.builder().topic("page_views")
                 .userId("user_2")
                 .eventTime(Instant.parse("2024-01-01T12:10:00Z"))
                 .url("https://example.com/p1")
@@ -105,7 +105,7 @@ class JoinEngineTest {
 
     @Test
     void multipleClicksInWindow() {
-        AdClickEvent clickA = AdClickEvent.builder()
+        AdClickEvent clickA = AdClickEvent.builder().topic("ad_clicks")
                 .userId("user_3")
                 .eventTime(Instant.parse("2024-01-01T12:20:00Z"))
                 .campaignId("campaign_C")
@@ -114,7 +114,7 @@ class JoinEngineTest {
                 .offset(0)
                 .build();
 
-        AdClickEvent clickB = AdClickEvent.builder()
+        AdClickEvent clickB = AdClickEvent.builder().topic("ad_clicks")
                 .userId("user_3")
                 .eventTime(Instant.parse("2024-01-01T12:25:00Z"))
                 .campaignId("campaign_D")
@@ -123,7 +123,7 @@ class JoinEngineTest {
                 .offset(1)
                 .build();
 
-        PageViewEvent pageView = PageViewEvent.builder()
+        PageViewEvent pageView = PageViewEvent.builder().topic("page_views")
                 .userId("user_3")
                 .eventTime(Instant.parse("2024-01-01T12:30:00Z"))
                 .url("https://example.com/product3")
@@ -144,7 +144,7 @@ class JoinEngineTest {
 
     @Test
     void clickOutsideAttributionWindow() {
-        AdClickEvent click = AdClickEvent.builder()
+        AdClickEvent click = AdClickEvent.builder().topic("ad_clicks")
                 .userId("user_4")
                 .eventTime(Instant.parse("2024-01-01T12:35:00Z"))
                 .campaignId("campaign_E")
@@ -153,7 +153,7 @@ class JoinEngineTest {
                 .offset(0)
                 .build();
 
-        PageViewEvent pageView = PageViewEvent.builder()
+        PageViewEvent pageView = PageViewEvent.builder().topic("page_views")
                 .userId("user_4")
                 .eventTime(Instant.parse("2024-01-01T13:10:00Z")) // 35 minutes later, outside 30-min window
                 .url("https://example.com/product4")
@@ -173,7 +173,7 @@ class JoinEngineTest {
 
     @Test
     void dropLateEvent() {
-        AdClickEvent onTimeClick = AdClickEvent.builder()
+        AdClickEvent onTimeClick = AdClickEvent.builder().topic("ad_clicks")
                 .userId("user_other")
                 .eventTime(Instant.parse("2024-01-01T12:45:00Z"))
                 .campaignId("campaign_X")
@@ -183,7 +183,7 @@ class JoinEngineTest {
                 .build();
         joinEngine.processClick(onTimeClick);
 
-        AdClickEvent lateClick = AdClickEvent.builder()
+        AdClickEvent lateClick = AdClickEvent.builder().topic("ad_clicks")
                 .userId("user_5")
                 .eventTime(Instant.parse("2024-01-01T12:20:00Z"))
                 .campaignId("campaign_F")
@@ -193,7 +193,7 @@ class JoinEngineTest {
                 .build();
         joinEngine.processClick(lateClick);
 
-        PageViewEvent pageView = PageViewEvent.builder()
+        PageViewEvent pageView = PageViewEvent.builder().topic("page_views")
                 .userId("user_5")
                 .eventTime(Instant.parse("2024-01-01T12:45:00Z"))
                 .url("https://example.com/product5")
@@ -211,7 +211,7 @@ class JoinEngineTest {
 
     @Test
     void noClickForPageView() {
-        PageViewEvent pageView = PageViewEvent.builder()
+        PageViewEvent pageView = PageViewEvent.builder().topic("page_views")
                 .userId("user_6")
                 .eventTime(Instant.parse("2024-01-01T13:20:00Z"))
                 .url("https://example.com/product6")

@@ -47,6 +47,7 @@ public class StreamConsumer {
             log.debug("Received ad click from partition {} at offset {}", record.partition(), record.offset());
 
             AdClickEvent click = objectMapper.readValue(record.value(), AdClickEvent.class);
+            click.setTopic(record.topic());
             click.setPartition(record.partition());
             click.setOffset(record.offset());
 
@@ -87,6 +88,7 @@ public class StreamConsumer {
                 record.partition(), record.offset());
 
             PageViewEvent pageView = objectMapper.readValue(record.value(), PageViewEvent.class);
+            pageView.setTopic(record.topic());
             pageView.setPartition(record.partition());
             pageView.setOffset(record.offset());
 

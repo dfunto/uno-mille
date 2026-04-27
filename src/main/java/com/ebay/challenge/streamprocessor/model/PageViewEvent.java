@@ -33,7 +33,7 @@ public class PageViewEvent implements ChangelogEvent {
     private String eventId;
 
     // Metadata fields for processing
-    public static final String WATERMARK_PREFIX = "page_views";
+    private transient String topic;
     private transient int partition;
     private transient long offset;
 
@@ -43,14 +43,8 @@ public class PageViewEvent implements ChangelogEvent {
         return userId;
     }
 
-    @Override
-    @JsonIgnore
-    public String getChangelogTopic() {
-        return WATERMARK_PREFIX + "-changelog";
-    }
-
     @JsonIgnore
     public String getWatermarkKey() {
-        return WATERMARK_PREFIX + ":" + partition;
+        return topic + ":" + partition;
     }
 }
