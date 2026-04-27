@@ -13,6 +13,8 @@ import org.junit.jupiter.api.Test;
 import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
+import com.ebay.challenge.streamprocessor.state.ChangelogProducer;
 
 /**
  * Simulates a processor restart (e.g. pod eviction).
@@ -32,7 +34,8 @@ class RestartTest {
                 new PageViewStore(),
                 new WatermarkTracker(15, broadcaster),
                 sink,
-                broadcaster
+                broadcaster,
+                mock(ChangelogProducer.class)
         );
     }
 

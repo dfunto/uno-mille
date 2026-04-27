@@ -4,6 +4,10 @@ In online marketplaces, advertisers need to understand which campaigns drive pro
 
 This repository implements a **stream processor** that consumes two event streams, `ad_clicks` and `page_views`, and produces an output stream, `attributed_page_view`, representing the most recent ad click by the same user within 30 minutes of each page view, with support for out-of-order events up to 15 minutes late.
 
+Attributed page views are emitted immediately when a page view arrives. If a matching click arrives late, a corrected attribution is emitted, overwriting the previous record. The output sink uses SQLite with upsert semantics, ensuring idempotent writes.
+
+A dashboard is also provided to better visualize the events timeline, attribution in real time and also the results written to the database. 
+
 To test the system a python script generates events that cover the following scenarios:
 - Normal - click before page view
 - Click arrives AFTER page view (out of order, within lateness)
@@ -103,7 +107,7 @@ docker-compose exec dev sqlite3 output/attributed_page_views.db "SELECT * FROM a
 | pv_5         | user_5  | 2024-01-01T12:45:00Z | https://example.com/product5 |            |          | Late click dropped — beyond allowed lateness |
 | pv_6         | user_6  | 2024-01-01T13:20:00Z | https://example.com/product6 |            |          | No click — page view without any click       |
 
-### Dashboard (Bonus)
+### Dashboard
 
 A real-time web dashboard is served at [http://localhost:8080](http://localhost:8080) when the processor is running. Built with vanilla HTML/JS and Server-Sent Events.
 
@@ -186,3 +190,26 @@ The state size defines the memory requirement and is controlled by the eviction 
 To properly evaluate the state size we should measure the max concurrent active users and what is the average clicks and page views per user.
 
 Scaling to multiple processor instances requires co-partitioned joins. Both topics must have the same number of partitions and be keyed by `userId`. A single Kafka consumer (subscribed to both topics) with the `RangeAssignor` guarantees that the same partition numbers from both topics are assigned to the same consumer instance.
+
+### State recovery
+
+All join state is held in memory. In the event of a crash or restart, this state is lost. Without recovery, a page view arriving after restart may miss a click that was in memory before the crash (Kafka offset was already committed, making it impossible to replay from source).
+
+To solve this, every click and page view processed by the engine is written to a Kafka changelog topic, keyed by user ID and partitioned to match the source partition. On startup, both changelog topics are read from beginning to end, rebuilding the state stores directly, with main consumers starting only after replay completes.
+
+Changelog topic retention must cover at least the state window (`attribution_window + allowed_lateness`) and compaction should be disabled.
+
+### Known Limitations
+
+#### Unbounded in-memory state under burst traffic
+
+If a burst of events arrives with event times within the 45-minute retention window, all are kept in memory regardless of volume. Since eviction depends on watermark advancement (new events), pausing the consumer to relieve memory pressure would freeze eviction, creating a deadlock.
+
+One solution would be to solve this with disk-backed state stores (RocksDB), decoupling state size from heap capacity but increasing slightly the latency.
+
+#### Cross-stream lag may cause missed attributions
+
+If one stream stops producing events (e.g. the click stream goes silent while page views keep flowing), page views will be emitted with null attribution even though matching clicks may arrive later. This happens because the system has no way to know whether the other stream is lagging or simply has no events to send.
+
+A possible solution is a min watermark gate: hold page view emissions until both streams have advanced their watermarks past the page view's event time, with a safety-valve idle timeout to avoid blocking indefinitely if one stream is genuinely inactive.
+

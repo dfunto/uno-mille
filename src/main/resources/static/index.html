@@ -143,6 +143,20 @@
             display: flex; justify-content: space-between;
             font-size: 0.6rem; color: #555; padding: 0 0 0 0;
         }
+
+        /* Output table */
+        .output-tbl { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+        .output-tbl th {
+            text-align: left; padding: 8px 12px; background: #1a1d27; color: #888;
+            font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px;
+            border-bottom: 2px solid #2a2d37;
+        }
+        .output-tbl td {
+            padding: 8px 12px; border-bottom: 1px solid #1e2130; color: #ccc;
+        }
+        .output-tbl tr:hover td { background: #1a1d27; }
+        .output-tbl .attributed { color: #a78bfa; }
+        .output-tbl .unattributed { color: #666; font-style: italic; }
     </style>
 </head>
 <body>
@@ -158,6 +172,7 @@
     <div class="tabs">
         <div class="tab active" data-tab="tab-feed">Live Feed</div>
         <div class="tab" data-tab="tab-timeline">Timeline</div>
+        <div class="tab" data-tab="tab-output">Output</div>
         <button id="btn-clear" style="margin-left:auto;padding:6px 14px;border-radius:6px;border:1px solid #3a3d4a;background:#1a1d27;color:#f87171;font-size:0.75rem;cursor:pointer;font-family:inherit;">Clear</button>
     </div>
 
@@ -174,6 +189,13 @@
             <select id="user-select"><option value="">-- select a user --</option></select>
         </div>
         <div id="timeline"></div>
+    </div>
+    <div id="tab-output" class="tab-content">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+            <button id="btn-refresh-output" style="padding:6px 14px;border-radius:6px;border:1px solid #3a3d4a;background:#1a1d27;color:#60a5fa;font-size:0.75rem;cursor:pointer;font-family:inherit;">Refresh</button>
+            <span id="output-status" style="font-size:0.75rem;color:#666;"></span>
+        </div>
+        <div id="output-table" style="overflow-x:auto;"></div>
     </div>
 
     <script>
@@ -555,6 +577,56 @@
         } catch (e) { /* corrupt data — start fresh */ }
 
         connect();
+
+        // --- Output tab ---
+        const outputTable = document.getElementById('output-table');
+        const outputStatus = document.getElementById('output-status');
+
+        async function loadOutput() {
+            outputStatus.textContent = 'Loading...';
+            try {
+                const res = await fetch('/api/output');
+                const rows = await res.json();
+                if (rows.length === 0) {
+                    outputTable.innerHTML = '<div class="tl-empty">No records in database yet.</div>';
+                    outputStatus.textContent = '0 rows';
+                    return;
+                }
+                const headers = Object.keys(rows[0]);
+                let html = '<table class="output-tbl"><thead><tr>' +
+                    headers.map(h => `<th>${h.replace(/_/g, ' ')}</th>`).join('') +
+                    '</tr></thead><tbody>';
+                for (const row of rows) {
+                    html += '<tr>';
+                    for (const h of headers) {
+                        const val = row[h];
+                        if ((h === 'attributed_campaign_id' || h === 'attributed_click_id') && !val) {
+                            html += '<td class="unattributed">—</td>';
+                        } else if (h === 'attributed_campaign_id' || h === 'attributed_click_id') {
+                            html += `<td class="attributed">${val}</td>`;
+                        } else {
+                            html += `<td>${val || ''}</td>`;
+                        }
+                    }
+                    html += '</tr>';
+                }
+                html += '</tbody></table>';
+                outputTable.innerHTML = html;
+                outputStatus.textContent = `${rows.length} row${rows.length !== 1 ? 's' : ''}`;
+            } catch (e) {
+                outputTable.innerHTML = '<div class="tl-empty">Failed to load output. Is the processor running?</div>';
+                outputStatus.textContent = 'Error';
+            }
+        }
+
+        document.getElementById('btn-refresh-output').addEventListener('click', loadOutput);
+
+        // Auto-load when switching to output tab
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                if (tab.dataset.tab === 'tab-output') loadOutput();
+            });
+        });
     </script>
 </body>
 </html>

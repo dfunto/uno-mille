@@ -30,6 +30,7 @@ public class ClickStateStore {
      * - Use locks for thread safety
      * - Store clicks sorted by event time (most recent first)
      * - Handle concurrent access properly
+     * - Write to changelog topic for crash recovery
      *
      * @param click the ad click event
      */
