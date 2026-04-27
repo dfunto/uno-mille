@@ -145,7 +145,9 @@ The watermark will keep track of the latest received event time for each topic a
 This way if a click or page event comes late we can safely drop that event in case it arrives later than the accepted window (15 min).  
 Watermark storage key format: `"topic:partition"`
 
-A scheduled eviction task runs every 30 seconds, removing clicks and page views older than `min_watermark - attribution_window - allowed_lateness` to prevent unbounded memory growth.
+A scheduled eviction task runs every 30 seconds to prevent unbounded memory growth. Each store's cutoff uses the other stream's watermark, since join relevance depends on what events the other stream might still produce:
+- **Click eviction**: `page_watermark - allowed_lateness - attribution_window` — a late page view could still need old clicks within its 30-min lookback window.
+- **Page eviction**: `click_watermark - allowed_lateness` — a late click only looks forward for page views, so pages older than the oldest possible late click are unneeded.
 
 ### Write semantics
 
@@ -185,7 +187,7 @@ Duplicate clicks are handled naturally: the `TreeSet` stores clicks sorted by ev
 
 By controlling the amount of Kafka partitions and increasing the processor concurrency we can horizontally scale the system.
 
-The state size defines the memory requirement and is controlled by the eviction strategy: `watermark - attribution windows - allowed lateness` (applied for both `clicks` and `pages views`)
+The state size defines the memory requirement and is controlled by the eviction strategy as described in [Watermark logic](#watermark-logic)
 
 To properly evaluate the state size we should measure the max concurrent active users and what is the average clicks and page views per user.
 
