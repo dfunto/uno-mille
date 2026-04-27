@@ -155,23 +155,25 @@ public class JoinEngine {
     /**
      * Scheduled task to evict old clicks and page views from state.
      * Runs every 30 seconds to prevent unbounded memory growth.
-     * Cutoff: min_watermark - attribution_window - allowed_lateness per topic.
      */
     @Scheduled(fixedRate = 30000)
     public void evictOldState() {
         log.info("Running state eviction");
         Duration allowedLateness = watermarkTracker.getAllowedLateness();
 
-        Instant minClickWatermark = watermarkTracker.findMinWatermark(adClicksTopic);
-        if (minClickWatermark.isAfter(Instant.MIN)) {
-            Instant clickCutoff = minClickWatermark.minus(ATTRIBUTION_WINDOW).minus(allowedLateness);
+        // Evict old clicks
+        Instant minPageWatermark = watermarkTracker.findMinWatermark(pageViewsTopic);
+        if (minPageWatermark.isAfter(Instant.MIN)) {
+            Instant clickCutoff = minPageWatermark.minus(ATTRIBUTION_WINDOW).minus(allowedLateness);
             int clicksEvicted = clickStore.evictOldClicks(clickCutoff);
             log.info("Evicted {} clicks older than {}", clicksEvicted, clickCutoff);
         }
 
-        Instant minPageWatermark = watermarkTracker.findMinWatermark(pageViewsTopic);
-        if (minPageWatermark.isAfter(Instant.MIN)) {
-            Instant pageCutoff = minPageWatermark.minus(ATTRIBUTION_WINDOW).minus(allowedLateness);
+        // Evict old pages: a late click only looks forward for page views,
+        // so pages older than the oldest possible late click are unneeded.
+        Instant minClickWatermark = watermarkTracker.findMinWatermark(adClicksTopic);
+        if (minClickWatermark.isAfter(Instant.MIN)) {
+            Instant pageCutoff = minClickWatermark.minus(allowedLateness);
             int pagesEvicted = pageStore.evictOldPages(pageCutoff);
             log.info("Evicted {} pages older than {}", pagesEvicted, pageCutoff);
         }
