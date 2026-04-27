@@ -4,6 +4,10 @@ In online marketplaces, advertisers need to understand which campaigns drive pro
 
 This repository implements a **stream processor** that consumes two event streams, `ad_clicks` and `page_views`, and produces an output stream, `attributed_page_view`, representing the most recent ad click by the same user within 30 minutes of each page view, with support for out-of-order events up to 15 minutes late.
 
+Attributed page views are emitted immediately when a page view arrives. If a matching click arrives late, a corrected attribution is emitted, overwriting the previous record. The output sink uses SQLite with upsert semantics, ensuring idempotent writes.
+
+A dashboard is also provided to better visualize the events timeline, attribution in real time and also the results written to the database. 
+
 To test the system a python script generates events that cover the following scenarios:
 - Normal - click before page view
 - Click arrives AFTER page view (out of order, within lateness)
@@ -103,7 +107,7 @@ docker-compose exec dev sqlite3 output/attributed_page_views.db "SELECT * FROM a
 | pv_5         | user_5  | 2024-01-01T12:45:00Z | https://example.com/product5 |            |          | Late click dropped — beyond allowed lateness |
 | pv_6         | user_6  | 2024-01-01T13:20:00Z | https://example.com/product6 |            |          | No click — page view without any click       |
 
-### Dashboard (Bonus)
+### Dashboard
 
 A real-time web dashboard is served at [http://localhost:8080](http://localhost:8080) when the processor is running. Built with vanilla HTML/JS and Server-Sent Events.
 
