@@ -26,10 +26,14 @@ graph LR
     subgraph Kafka
         KC[ad_clicks topic]
         KP[page_views topic]
+        KCL[changelog topic]
     end
 
     subgraph Stream Processor
-        SC[StreamConsumer]
+        subgraph Engine
+            SC[StreamConsumer]
+            SCL[ChangelogReplayer]
+        end
 
         subgraph State
             CS[ClickStateStore]
@@ -47,6 +51,7 @@ graph LR
 
     KC --> SC
     KP --> SC
+    KCL --> SCL
 
     subgraph Output
         SK[OutputSink]
