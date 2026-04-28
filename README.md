@@ -83,8 +83,7 @@ Data is stored in a SQLite database table and new records are merged based on pa
 
 ### Watermark logic
 
-Because `ad_clicks` and `page_views` are consumed by separate threads, a click can arrive after its corresponding page view. 
-Watermarks allow the processor to handle out-of-order delivery.
+Watermarks are needed because in real time processing events arrive out of order in event time, in other words, a click can arrive after its corresponding page view.
 
 The watermark will keep track of the latest received event time for each topic and partition, and it will only advance monotonically (never backwards).  
 This way if a click or page event comes late we can safely drop that event in case it arrives later than the accepted window (15 min).  
@@ -104,6 +103,15 @@ Failure scenarios:
 - **Sink unavailable** — the write fails, the offset is not committed, and the event will be retried on the next poll.
 - **Kafka broker down** — the consumer will keep retrying connections using Spring Kafka's built-in retry mechanism until the broker is available again.
 
+### State recovery
+
+All join state is held in memory. In the event of a crash or restart, this state is lost. Without recovery, a page view arriving after restart may miss a click that was in memory before the crash (Kafka offset was already committed, making it impossible to replay from source).
+
+To solve this, every click and page view processed by the engine is written to a Kafka changelog topic, keyed by user ID and partitioned to match the source partition. On startup, both changelog topics are read from beginning to end, rebuilding the state stores directly, with main consumers starting only after replay completes.
+
+Changelog topic retention must cover at least the state window (`attribution_window + allowed_lateness`) and compaction should be disabled.
+
+
 ### Concurrency model
 
 Each partition is consumed by a single thread, and can be configured by `kafka.consumer.concurrency` application config.
@@ -120,24 +128,17 @@ In production, writes could become a bottleneck, this could be solved by using a
 
 Duplicate clicks are handled naturally: the `TreeSet` stores clicks sorted by event time (with offset as tie-breaker), and `findAttributableClick` always picks the latest click in the window. Since the output sink upserts by `page_view_id`, duplicate attributions produce the same row.
 
-### State recovery
-
-All join state is held in memory. In the event of a crash or restart, this state is lost. Without recovery, a page view arriving after restart may miss a click that was in memory before the crash (Kafka offset was already committed, making it impossible to replay from source).
-
-To solve this, every click and page view processed by the engine is written to a Kafka changelog topic, keyed by user ID and partitioned to match the source partition. On startup, both changelog topics are read from beginning to end, rebuilding the state stores directly, with main consumers starting only after replay completes.
-
-Changelog topic retention must cover at least the state window (`attribution_window + allowed_lateness`) and compaction should be disabled.
-
 
 ### Capacity / Scaling
 
-By controlling the amount of Kafka partitions and increasing the processor concurrency we can horizontally scale the system.
+By controlling the amount of Kafka partitions and increasing the processor concurrency we can vertically scale the system.
 
 The state size defines the memory requirement and is controlled by the eviction strategy as described in [Watermark logic](#watermark-logic)
 
-To properly evaluate the state size we should measure the max concurrent active users and what is the average clicks and page views per user.
+To properly evaluate the state size we could measure the max concurrent active users and what is the average clicks and page views per user.
 
-Scaling to multiple processor instances requires co-partitioned joins. Both topics must have the same number of partitions and be keyed by `userId`. A single Kafka consumer (subscribed to both topics) with the `RangeAssignor` guarantees that the same partition numbers from both topics are assigned to the same consumer instance.
+Scaling to multiple processor instances requires co-partitioned joins. Both topics must have the same number of partitions and be keyed by `userId`.   
+A single Kafka consumer (subscribed to both topics) with the `RangeAssignor` guarantees that the same partition numbers from both topics are assigned to the same consumer instance.
 
 ### Known Limitations
 
