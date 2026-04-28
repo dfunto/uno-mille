@@ -141,6 +141,14 @@ Test coverage:
 
 ## Implementation Design
 
+### Write semantics
+
+Opted for `update` write semantics since the challenge has no specific requirements on latency or downstream consumer behavior.
+This is simpler to implement than `emit-once` (which requires holding page views until watermark advances past the lateness window), and provides lower time-to-first-result.  
+When a page view arrives, it is immediately emitted with the best known click at that moment or with null attribution if no matching click exists yet.
+Page views are buffered so that late-arriving clicks can trigger re-attribution. If a better click is found, a corrected record is written, overwriting the previous one.
+Data is stored in a SQLite database table and new records are merged based on page_view_id.
+
 ### Watermark logic
 
 Because `ad_clicks` and `page_views` are consumed by separate threads, a click can arrive after its corresponding page view. 
@@ -153,14 +161,6 @@ Watermark storage key format: `"topic:partition"`
 A scheduled eviction task runs every 30 seconds to prevent unbounded memory growth. Each store's cutoff uses the other stream's watermark, since join relevance depends on what events the other stream might still produce:
 - **Click eviction**: `page_watermark - allowed_lateness - attribution_window` — a late page view could still need old clicks within its 30-min lookback window.
 - **Page eviction**: `click_watermark - allowed_lateness` — a late click only looks forward for page views, so pages older than the oldest possible late click are unneeded.
-
-### Write semantics
-
-Opted for `Update` semantics to prevent high latency. When a page view arrives, it is immediately emitted with the best known click at that moment or with null attribution if no matching click exists yet.
-
-Page views are buffered so that late-arriving clicks can trigger re-attribution. If a better click is found, a corrected record is written, overwriting the previous one.
-
-Data is stored in a SQLite database table and new records are merged based on page_view_id.
 
 ### Delivery guarantees
 
